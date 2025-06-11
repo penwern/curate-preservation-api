@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/penwern/curate-preservation-core-api/config"
 	"github.com/penwern/curate-preservation-core-api/database"
+	"github.com/penwern/curate-preservation-core-api/pkg/logger"
 )
 
 // Server represents the API server
@@ -60,7 +60,7 @@ func (s *Server) Start() error {
 func (s *Server) Shutdown() error {
 	// Close the database connection
 	if err := s.db.Close(); err != nil {
-		log.Printf("Error closing database: %v", err)
+		logger.Error("Error closing database: %v", err)
 	}
 
 	// Create a deadline to wait for current connections to complete

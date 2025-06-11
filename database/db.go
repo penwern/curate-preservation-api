@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/penwern/curate-preservation-core-api/pkg/logger"
 )
 
 // Database represents a database connection
@@ -21,6 +22,7 @@ func New(dbType, connString string) (*Database, error) {
 		return nil, errors.New("unsupported database type, must be 'sqlite3' or 'mysql'")
 	}
 
+	logger.Info("Connecting to %s database: %s", dbType, connString)
 	db, err := sql.Open(dbType, connString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
@@ -31,16 +33,20 @@ func New(dbType, connString string) (*Database, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	logger.Info("Successfully connected to %s database", dbType)
+
 	database := &Database{
 		db:     db,
 		dbType: dbType,
 	}
 
 	// Initialize database tables
+	logger.Info("Initializing database tables...")
 	if err := database.initialize(); err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
+	logger.Info("Database initialization completed successfully")
 	return database, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/penwern/curate-preservation-core-api/models"
+	"github.com/penwern/curate-preservation-core-api/pkg/logger"
 )
 
 var (
@@ -13,6 +14,8 @@ var (
 
 // CreateConfig creates a new preservation configuration in the database
 func (d *Database) CreateConfig(config *models.PreservationConfig) error {
+	logger.Debug("Creating new preservation config: %s", config.Name)
+
 	var query string
 
 	if d.dbType == "sqlite3" {
@@ -85,21 +88,26 @@ func (d *Database) CreateConfig(config *models.PreservationConfig) error {
 	)
 
 	if err != nil {
+		logger.Error("Failed to create preservation config '%s': %v", config.Name, err)
 		return err
 	}
 
 	// Get the auto-generated ID and assign it to the config
 	id, err := result.LastInsertId()
 	if err != nil {
+		logger.Error("Failed to get last insert ID for config '%s': %v", config.Name, err)
 		return err
 	}
 	config.ID = id
 
+	logger.Debug("Successfully created preservation config '%s' with ID: %d", config.Name, config.ID)
 	return nil
 }
 
 // GetConfig retrieves a preservation configuration by ID
 func (d *Database) GetConfig(id int64) (*models.PreservationConfig, error) {
+	logger.Debug("Fetching preservation config with ID: %d", id)
+
 	query := `
 	SELECT 
 		id, name, description, 
@@ -153,16 +161,21 @@ func (d *Database) GetConfig(id int64) (*models.PreservationConfig, error) {
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			logger.Debug("Preservation config not found: %d", id)
 			return nil, ErrNotFound
 		}
+		logger.Error("Failed to fetch preservation config %d: %v", id, err)
 		return nil, err
 	}
 
+	logger.Debug("Successfully fetched preservation config: %s (ID: %d)", config.Name, config.ID)
 	return &config, nil
 }
 
 // ListConfigs retrieves all preservation configurations
 func (d *Database) ListConfigs() ([]*models.PreservationConfig, error) {
+	logger.Debug("Fetching all preservation configs")
+
 	query := `
 	SELECT 
 		id, name, description, 
@@ -222,15 +235,18 @@ func (d *Database) ListConfigs() ([]*models.PreservationConfig, error) {
 			&config.UpdatedAt,
 		)
 		if err != nil {
+			logger.Error("Failed to scan preservation config row: %v", err)
 			return nil, err
 		}
 		configs = append(configs, &config)
 	}
 
 	if err := rows.Err(); err != nil {
+		logger.Error("Error iterating over preservation config rows: %v", err)
 		return nil, err
 	}
 
+	logger.Debug("Successfully fetched %d preservation configs", len(configs))
 	return configs, nil
 }
 

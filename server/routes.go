@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/penwern/curate-preservation-core-api/database"
 	"github.com/penwern/curate-preservation-core-api/models"
+	"github.com/penwern/curate-preservation-core-api/pkg/logger"
 )
 
 // routes registers the API routes
@@ -42,12 +43,15 @@ func (s *Server) handleHealth() http.HandlerFunc {
 // handleListConfigs returns a handler to list all preservation configs
 func (s *Server) handleListConfigs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("Fetching all preservation configs")
 		configs, err := s.db.ListConfigs()
 		if err != nil {
+			logger.Error("Failed to fetch configs: %v", err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to fetch configs")
 			return
 		}
 
+		logger.Debug("Successfully fetched %d configs", len(configs))
 		respondWithJSON(w, http.StatusOK, configs)
 	}
 }
@@ -57,26 +61,32 @@ func (s *Server) handleGetConfig() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		if idStr == "" {
+			logger.Warn("Get config request missing ID parameter")
 			respondWithError(w, http.StatusBadRequest, "ID is required")
 			return
 		}
 
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
+			logger.Warn("Invalid ID format in get config request: %s", idStr)
 			respondWithError(w, http.StatusBadRequest, "Invalid ID format")
 			return
 		}
 
+		logger.Info("Fetching preservation config with ID: %d", id)
 		config, err := s.db.GetConfig(id)
 		if err != nil {
 			if errors.Is(err, database.ErrNotFound) {
+				logger.Warn("Preservation config not found: %d", id)
 				respondWithError(w, http.StatusNotFound, "Preservation config not found")
 				return
 			}
+			logger.Error("Failed to fetch config %d: %v", id, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to fetch config")
 			return
 		}
 
+		logger.Debug("Successfully fetched config: %s (ID: %d)", config.Name, config.ID)
 		respondWithJSON(w, http.StatusOK, config)
 	}
 }
@@ -90,22 +100,27 @@ func (s *Server) handleCreateConfig() http.HandlerFunc {
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			logger.Warn("Invalid request payload in create config: %v", err)
 			respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 			return
 		}
 
 		if input.Name == "" {
+			logger.Warn("Create config request missing required name field")
 			respondWithError(w, http.StatusBadRequest, "Name is required")
 			return
 		}
 
+		logger.Info("Creating new preservation config: %s", input.Name)
 		config := models.NewPreservationConfig(input.Name, input.Description)
 
 		if err := s.db.CreateConfig(config); err != nil {
+			logger.Error("Failed to create config '%s': %v", input.Name, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to create config")
 			return
 		}
 
+		logger.Info("Successfully created preservation config: %s (ID: %d)", config.Name, config.ID)
 		respondWithJSON(w, http.StatusCreated, config)
 	}
 }
@@ -115,23 +130,29 @@ func (s *Server) handleUpdateConfig() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		if idStr == "" {
+			logger.Warn("Update config request missing ID parameter")
 			respondWithError(w, http.StatusBadRequest, "ID is required")
 			return
 		}
 
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
+			logger.Warn("Invalid ID format in update config request: %s", idStr)
 			respondWithError(w, http.StatusBadRequest, "Invalid ID format")
 			return
 		}
+
+		logger.Info("Updating preservation config with ID: %d", id)
 
 		// Get the existing config to verify it exists
 		existingConfig, err := s.db.GetConfig(id)
 		if err != nil {
 			if errors.Is(err, database.ErrNotFound) {
+				logger.Warn("Attempted to update non-existent config: %d", id)
 				respondWithError(w, http.StatusNotFound, "Preservation config not found")
 				return
 			}
+			logger.Error("Failed to fetch existing config %d for update: %v", id, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to fetch config")
 			return
 		}
@@ -139,12 +160,14 @@ func (s *Server) handleUpdateConfig() http.HandlerFunc {
 		// Decode the updated config from request body
 		var updatedConfig models.PreservationConfig
 		if err := json.NewDecoder(r.Body).Decode(&updatedConfig); err != nil {
+			logger.Warn("Invalid request payload in update config %d: %v", id, err)
 			respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 			return
 		}
 
 		// Ensure the ID in the URL matches the ID in the request body (if provided)
 		if updatedConfig.ID != 0 && updatedConfig.ID != id {
+			logger.Warn("ID mismatch in update request: URL=%d, Body=%d", id, updatedConfig.ID)
 			respondWithError(w, http.StatusBadRequest, "ID in URL does not match ID in request body")
 			return
 		}
@@ -154,10 +177,12 @@ func (s *Server) handleUpdateConfig() http.HandlerFunc {
 		updatedConfig.CreatedAt = existingConfig.CreatedAt
 
 		if err := s.db.UpdateConfig(&updatedConfig); err != nil {
+			logger.Error("Failed to update config %d: %v", id, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to update config")
 			return
 		}
 
+		logger.Info("Successfully updated preservation config: %s (ID: %d)", updatedConfig.Name, updatedConfig.ID)
 		respondWithJSON(w, http.StatusOK, &updatedConfig)
 	}
 }
@@ -167,25 +192,32 @@ func (s *Server) handleDeleteConfig() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		if idStr == "" {
+			logger.Warn("Delete config request missing ID parameter")
 			respondWithError(w, http.StatusBadRequest, "ID is required")
 			return
 		}
 
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
+			logger.Warn("Invalid ID format in delete config request: %s", idStr)
 			respondWithError(w, http.StatusBadRequest, "Invalid ID format")
 			return
 		}
 
+		logger.Info("Deleting preservation config with ID: %d", id)
+
 		if err := s.db.DeleteConfig(id); err != nil {
 			if errors.Is(err, database.ErrNotFound) {
+				logger.Warn("Attempted to delete non-existent config: %d", id)
 				respondWithError(w, http.StatusNotFound, "Preservation config not found")
 				return
 			}
+			logger.Error("Failed to delete config %d: %v", id, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to delete config")
 			return
 		}
 
+		logger.Info("Successfully deleted preservation config with ID: %d", id)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
