@@ -2,6 +2,8 @@
 
 A standalone Go application that provides RESTful API endpoints for managing digital preservation configurations. The API supports CRUD operations (Create, Read, Update, Delete) and is compatible with both MySQL and SQLite3 databases.
 
+Intended for use alongside Penwern Curate Preservation Core.
+
 ## Features
 
 - RESTful API for preservation configurations
