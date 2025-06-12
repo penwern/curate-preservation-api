@@ -268,7 +268,7 @@ func TestDatabase_ConfigWithCustomA3MValues(t *testing.T) {
 	config := &models.PreservationConfig{
 		Name:        "Custom Config",
 		Description: "Config with custom A3M values",
-		A3MConfig: transferservice.ProcessingConfig{
+		A3MConfig: models.A3MProcessingConfig{
 			AssignUuidsToDirectories:                     false,
 			ExamineContents:                              true,
 			GenerateTransferStructureReport:              false,

@@ -36,7 +36,7 @@ func New(cfg config.Config) (*Server, error) {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
-	router.Use(middleware.Timeout(60 * time.Second))
+	router.Use(middleware.Timeout(5 * time.Second))
 	router.Use(render.SetContentType(render.ContentTypeJSON))
 
 	server := &Server{
@@ -72,17 +72,15 @@ func (s *Server) Shutdown() error {
 }
 
 // respondWithJSON writes a JSON response
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	response, err := json.Marshal(payload)
+func respondWithJSON(w http.ResponseWriter, code int, payload any) {
+	b, err := json.Marshal(payload)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "Internal Server Error"}`))
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(response)
+	w.Write(b)
 }
 
 // respondWithError writes an error response

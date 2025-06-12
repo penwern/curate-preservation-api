@@ -12,10 +12,13 @@ import (
 	"github.com/penwern/curate-preservation-core-api/config"
 	"github.com/penwern/curate-preservation-core-api/database"
 	"github.com/penwern/curate-preservation-core-api/models"
+	"github.com/penwern/curate-preservation-core-api/pkg/logger"
 )
 
 func setupTestServer(t *testing.T) *Server {
 	t.Helper()
+
+	logger.Initialize("debug")
 
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
@@ -217,6 +220,135 @@ func TestServer_HandleCreateConfig_MissingName(t *testing.T) {
 	}
 }
 
+func TestServer_HandleCreateConfig_WithPartialA3MConfig(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	createReq := map[string]any{
+		"name":        "Partial A3M Config",
+		"description": "Config with some custom A3M settings",
+		"a3m_config": map[string]any{
+			"examine_contents":      true,
+			"normalize":             false,
+			"aip_compression_level": 9,
+			"extract_packages":      false,
+		},
+	}
+
+	reqBody, err := json.Marshal(createReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var config models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &config)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	// Check that custom values were applied
+	if !config.A3MConfig.ExamineContents {
+		t.Error("Expected ExamineContents to be true")
+	}
+	if config.A3MConfig.Normalize {
+		t.Error("Expected Normalize to be false")
+	}
+	if config.A3MConfig.AipCompressionLevel != 9 {
+		t.Errorf("Expected AipCompressionLevel to be 9, got %d", config.A3MConfig.AipCompressionLevel)
+	}
+	if config.A3MConfig.ExtractPackages {
+		t.Error("Expected ExtractPackages to be false")
+	}
+
+	// Check that defaults were preserved for unspecified fields
+	if !config.A3MConfig.AssignUuidsToDirectories {
+		t.Error("Expected AssignUuidsToDirectories to be true (default)")
+	}
+	if !config.A3MConfig.IdentifyTransfer {
+		t.Error("Expected IdentifyTransfer to be true (default)")
+	}
+}
+
+func TestServer_HandleCreateConfig_WithFullA3MConfig(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	createReq := map[string]any{
+		"name":        "Full A3M Config",
+		"description": "Config with complete A3M settings",
+		"a3m_config": map[string]any{
+			"assign_uuids_to_directories":                       false,
+			"examine_contents":                                  true,
+			"generate_transfer_structure_report":                false,
+			"document_empty_directories":                        false,
+			"extract_packages":                                  false,
+			"delete_packages_after_extraction":                  true,
+			"identify_transfer":                                 false,
+			"identify_submission_and_metadata":                  false,
+			"identify_before_normalization":                     false,
+			"normalize":                                         false,
+			"transcribe_files":                                  false,
+			"perform_policy_checks_on_originals":                false,
+			"perform_policy_checks_on_preservation_derivatives": false,
+			"perform_policy_checks_on_access_derivatives":       false,
+			"thumbnail_mode":                                    0,
+			"aip_compression_level":                             9,
+			"aip_compression_algorithm":                         1,
+		},
+	}
+
+	reqBody, err := json.Marshal(createReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var config models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &config)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	// Verify all custom values were applied
+	if config.A3MConfig.AssignUuidsToDirectories {
+		t.Error("Expected AssignUuidsToDirectories to be false")
+	}
+	if !config.A3MConfig.ExamineContents {
+		t.Error("Expected ExamineContents to be true")
+	}
+	if config.A3MConfig.GenerateTransferStructureReport {
+		t.Error("Expected GenerateTransferStructureReport to be false")
+	}
+	if config.A3MConfig.AipCompressionLevel != 9 {
+		t.Errorf("Expected AipCompressionLevel to be 9, got %d", config.A3MConfig.AipCompressionLevel)
+	}
+}
+
 func TestServer_HandleGetConfig(t *testing.T) {
 	server := setupTestServer(t)
 	defer server.Shutdown()
@@ -298,10 +430,10 @@ func TestServer_HandleUpdateConfig(t *testing.T) {
 	}
 
 	// Update request
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name":        "Updated Name",
 		"description": "Updated Description",
-		"a3m_config": map[string]interface{}{
+		"a3m_config": map[string]any{
 			"examine_contents": true,
 		},
 	}
@@ -332,6 +464,197 @@ func TestServer_HandleUpdateConfig(t *testing.T) {
 
 	if updatedConfig.Name != updateReq["name"] {
 		t.Errorf("Expected name '%s', got '%s'", updateReq["name"], updatedConfig.Name)
+	}
+}
+
+func TestServer_HandleUpdateConfig_PartialUpdate(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	// First create a config with specific values
+	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config.A3MConfig.ExamineContents = false
+	config.A3MConfig.Normalize = true
+	config.A3MConfig.AipCompressionLevel = 1
+	err := server.db.CreateConfig(config)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+
+	// Partial update - only update description and one A3M field
+	updateReq := map[string]any{
+		"description": "Updated Description Only",
+		"a3m_config": map[string]any{
+			"examine_contents": true, // Change this
+			// Don't specify other fields - they should remain unchanged
+		},
+	}
+
+	reqBody, err := json.Marshal(updateReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var updatedConfig models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &updatedConfig)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	// Check that specified fields were updated
+	if updatedConfig.Description != "Updated Description Only" {
+		t.Errorf("Expected description 'Updated Description Only', got '%s'", updatedConfig.Description)
+	}
+	if !updatedConfig.A3MConfig.ExamineContents {
+		t.Error("Expected ExamineContents to be updated to true")
+	}
+
+	// Check that unspecified fields remained unchanged
+	if updatedConfig.Name != "Original Name" {
+		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	}
+	if !updatedConfig.A3MConfig.Normalize {
+		t.Error("Expected Normalize to remain true (unchanged)")
+	}
+	if updatedConfig.A3MConfig.AipCompressionLevel != 1 {
+		t.Errorf("Expected AipCompressionLevel to remain 1, got %d", updatedConfig.A3MConfig.AipCompressionLevel)
+	}
+}
+
+func TestServer_HandleUpdateConfig_OnlyA3MConfig(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	// First create a config
+	config := models.NewPreservationConfig("Original Name", "Original Description")
+	err := server.db.CreateConfig(config)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+
+	// Update only A3M config fields
+	updateReq := map[string]any{
+		"a3m_config": map[string]any{
+			"examine_contents":      true,
+			"normalize":             false,
+			"aip_compression_level": 9,
+			"extract_packages":      false,
+		},
+	}
+
+	reqBody, err := json.Marshal(updateReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var updatedConfig models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &updatedConfig)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	// Check that basic fields remained unchanged
+	if updatedConfig.Name != "Original Name" {
+		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	}
+	if updatedConfig.Description != "Original Description" {
+		t.Errorf("Expected description to remain 'Original Description', got '%s'", updatedConfig.Description)
+	}
+
+	// Check that A3M config fields were updated
+	if !updatedConfig.A3MConfig.ExamineContents {
+		t.Error("Expected ExamineContents to be true")
+	}
+	if updatedConfig.A3MConfig.Normalize {
+		t.Error("Expected Normalize to be false")
+	}
+	if updatedConfig.A3MConfig.AipCompressionLevel != 9 {
+		t.Errorf("Expected AipCompressionLevel to be 9, got %d", updatedConfig.A3MConfig.AipCompressionLevel)
+	}
+	if updatedConfig.A3MConfig.ExtractPackages {
+		t.Error("Expected ExtractPackages to be false")
+	}
+
+	// Check that unspecified A3M fields remained at defaults
+	if !updatedConfig.A3MConfig.AssignUuidsToDirectories {
+		t.Error("Expected AssignUuidsToDirectories to remain true (default)")
+	}
+}
+
+func TestServer_HandleUpdateConfig_EmptyDescription(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	// First create a config
+	config := models.NewPreservationConfig("Original Name", "Original Description")
+	err := server.db.CreateConfig(config)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+
+	// Update with empty description (should clear it)
+	updateReq := map[string]any{
+		"description": "",
+	}
+
+	reqBody, err := json.Marshal(updateReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var updatedConfig models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &updatedConfig)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	// Check that description was cleared
+	if updatedConfig.Description != "" {
+		t.Errorf("Expected description to be empty, got '%s'", updatedConfig.Description)
+	}
+
+	// Check that name remained unchanged
+	if updatedConfig.Name != "Original Name" {
+		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
 	}
 }
 
@@ -486,5 +809,117 @@ func TestServer_CORS_Methods(t *testing.T) {
 				t.Errorf("Method %s not allowed for %s", method, url)
 			}
 		})
+	}
+}
+
+func TestServer_HandleCreateConfig_EmptyName(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	createReq := map[string]any{
+		"name":        "", // Empty name should fail
+		"description": "Test Description",
+	}
+
+	reqBody, err := json.Marshal(createReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+func TestServer_HandleUpdateConfig_IDMismatch(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	// First create a config
+	config := models.NewPreservationConfig("Original Name", "Original Description")
+	err := server.db.CreateConfig(config)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+
+	// Update with mismatched ID in body
+	updateReq := map[string]any{
+		"id":          999, // Different from URL
+		"name":        "Updated Name",
+		"description": "Updated Description",
+	}
+
+	reqBody, err := json.Marshal(updateReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+func TestServer_HandleUpdateConfig_NoFieldsProvided(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	// First create a config
+	config := models.NewPreservationConfig("Original Name", "Original Description")
+	err := server.db.CreateConfig(config)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+
+	// Update with empty body (should succeed but not change anything)
+	updateReq := map[string]any{}
+
+	reqBody, err := json.Marshal(updateReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var updatedConfig models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &updatedConfig)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	// Check that nothing changed
+	if updatedConfig.Name != "Original Name" {
+		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	}
+	if updatedConfig.Description != "Original Description" {
+		t.Errorf("Expected description to remain 'Original Description', got '%s'", updatedConfig.Description)
 	}
 }

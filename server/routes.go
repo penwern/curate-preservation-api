@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mitchellh/mapstructure"
 	"github.com/penwern/curate-preservation-core-api/database"
 	"github.com/penwern/curate-preservation-core-api/models"
 	"github.com/penwern/curate-preservation-core-api/pkg/logger"
@@ -88,40 +89,80 @@ func (s *Server) handleGetConfig() http.HandlerFunc {
 
 		logger.Debug("Successfully fetched config: %s (ID: %d)", config.Name, config.ID)
 		respondWithJSON(w, http.StatusOK, config)
+
+		logger.Debug("Config: %+v", config)
 	}
 }
 
 // handleCreateConfig returns a handler to create a new preservation config
 func (s *Server) handleCreateConfig() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var input struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		// Parse the raw JSON to detect which fields are provided
+		var rawInput map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&rawInput); err != nil {
 			logger.Warn("Invalid request payload in create config: %v", err)
 			respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 			return
 		}
 
-		if input.Name == "" {
+		logger.Debug("Raw input: %v", rawInput)
+
+		// Extract name (required)
+		name, nameExists := rawInput["name"]
+		if !nameExists {
 			logger.Warn("Create config request missing required name field")
 			respondWithError(w, http.StatusBadRequest, "Name is required")
 			return
 		}
+		nameStr, ok := name.(string)
+		if !ok || nameStr == "" {
+			logger.Warn("Create config request has invalid name field")
+			respondWithError(w, http.StatusBadRequest, "Name is required and must be a string")
+			return
+		}
 
-		logger.Info("Creating new preservation config: %s", input.Name)
-		config := models.NewPreservationConfig(input.Name, input.Description)
+		// Extract description (optional)
+		description := ""
+		if desc, exists := rawInput["description"]; exists {
+			if descStr, ok := desc.(string); ok {
+				description = descStr
+			}
+		}
+
+		logger.Info("Creating new preservation config: %s", nameStr)
+
+		// Start with default config
+		config := models.NewPreservationConfig(nameStr, description)
+
+		logger.Debug("Default Config: %+v", config)
+
+		// If A3M config is provided, merge it with defaults
+		if a3mConfig, exists := rawInput["a3m_config"]; exists {
+			if a3mMap, ok := a3mConfig.(map[string]any); ok {
+				updateA3MConfigFromMap(&config.A3MConfig, a3mMap)
+			}
+		}
+
+		logger.Debug("Updated Config: %+v", config)
 
 		if err := s.db.CreateConfig(config); err != nil {
-			logger.Error("Failed to create config '%s': %v", input.Name, err)
+			logger.Error("Failed to create config '%s': %v", nameStr, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to create config")
 			return
 		}
 
-		logger.Info("Successfully created preservation config: %s (ID: %d)", config.Name, config.ID)
-		respondWithJSON(w, http.StatusCreated, config)
+		// Fetch the created config from the database to ensure we return the actual saved data
+		createdConfig, err := s.db.GetConfig(config.ID)
+		if err != nil {
+			logger.Error("Failed to fetch created config %d: %v", config.ID, err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to fetch created config")
+			return
+		}
+
+		logger.Debug("Created Config: %+v", createdConfig)
+
+		logger.Info("Successfully created preservation config: %s (ID: %d)", createdConfig.Name, createdConfig.ID)
+		respondWithJSON(w, http.StatusCreated, createdConfig)
 	}
 }
 
@@ -157,33 +198,56 @@ func (s *Server) handleUpdateConfig() http.HandlerFunc {
 			return
 		}
 
-		// Decode the updated config from request body
-		var updatedConfig models.PreservationConfig
-		if err := json.NewDecoder(r.Body).Decode(&updatedConfig); err != nil {
+		// Parse the raw JSON to detect which fields are provided
+		var rawUpdate map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&rawUpdate); err != nil {
 			logger.Warn("Invalid request payload in update config %d: %v", id, err)
 			respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 			return
 		}
 
-		// Ensure the ID in the URL matches the ID in the request body (if provided)
-		if updatedConfig.ID != 0 && updatedConfig.ID != id {
-			logger.Warn("ID mismatch in update request: URL=%d, Body=%d", id, updatedConfig.ID)
-			respondWithError(w, http.StatusBadRequest, "ID in URL does not match ID in request body")
-			return
+		// Work with the existing config directly (avoid copying)
+		updatedConfig := existingConfig
+
+		// Update basic fields if provided
+		if name, exists := rawUpdate["name"]; exists {
+			if nameStr, ok := name.(string); ok {
+				updatedConfig.Name = nameStr
+			}
+		}
+		if description, exists := rawUpdate["description"]; exists {
+			if descStr, ok := description.(string); ok {
+				updatedConfig.Description = descStr
+			}
 		}
 
-		// Set the ID and preserve created time
-		updatedConfig.ID = id
-		updatedConfig.CreatedAt = existingConfig.CreatedAt
+		// Handle A3M config updates if provided
+		if a3mConfig, exists := rawUpdate["a3m_config"]; exists {
+			if a3mMap, ok := a3mConfig.(map[string]any); ok {
+				updateA3MConfigFromMap(&updatedConfig.A3MConfig, a3mMap)
+			}
+		}
 
-		if err := s.db.UpdateConfig(&updatedConfig); err != nil {
+		// Ensure the ID in the URL matches the ID in the request body (if provided)
+		if idFromBody, exists := rawUpdate["id"]; exists {
+			if idFloat, ok := idFromBody.(float64); ok && int64(idFloat) != id {
+				logger.Warn("ID mismatch in update request: URL=%d, Body=%d", id, int64(idFloat))
+				respondWithError(w, http.StatusBadRequest, "ID in URL does not match ID in request body")
+				return
+			}
+		}
+
+		// Set the ID (already correct, but ensure it's set)
+		updatedConfig.ID = id
+
+		if err := s.db.UpdateConfig(updatedConfig); err != nil {
 			logger.Error("Failed to update config %d: %v", id, err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to update config")
 			return
 		}
 
 		logger.Info("Successfully updated preservation config: %s (ID: %d)", updatedConfig.Name, updatedConfig.ID)
-		respondWithJSON(w, http.StatusOK, &updatedConfig)
+		respondWithJSON(w, http.StatusOK, updatedConfig)
 	}
 }
 
@@ -219,5 +283,23 @@ func (s *Server) handleDeleteConfig() http.HandlerFunc {
 
 		logger.Info("Successfully deleted preservation config with ID: %d", id)
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func updateA3MConfigFromMap(target *models.A3MProcessingConfig, source map[string]any) {
+	config := &mapstructure.DecoderConfig{
+		Result:           target,
+		WeaklyTypedInput: true, // Handles float64 -> int32 conversion
+		TagName:          "json",
+	}
+
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		logger.Error("Failed to create decoder: %v", err)
+		return
+	}
+
+	if err := decoder.Decode(source); err != nil {
+		logger.Error("Failed to decode config: %v", err)
 	}
 }
