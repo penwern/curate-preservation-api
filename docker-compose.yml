@@ -1,0 +1,55 @@
+services:
+  preservation-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-docker}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    container_name: preservation-api
+    ports:
+      - "6910:6910"
+    volumes:
+      - preservation_data:/app/data
+      - ./config:/app/config:ro  # Mount config directory as read-only
+    environment:
+      - LOG_LEVEL=info
+    # Override the default command to use configuration file if available
+    command: ["./preservation-api", "serve", "--config", "/app/config/.preservation-api.yaml", "--db-connection", "/app/data/preservation_configs.db"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6910/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - preservation-network
+
+  # Optional MySQL service (uncomment if you want to use MySQL instead of SQLite)
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: preservation-mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: rootpassword
+  #     MYSQL_DATABASE: preservation
+  #     MYSQL_USER: preservation_user
+  #     MYSQL_PASSWORD: preservation_pass
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   ports:
+  #     - "3306:3306"
+  #   restart: unless-stopped
+  #   networks:
+  #     - preservation-network
+
+volumes:
+  preservation_data:
+    driver: local
+  # mysql_data:
+  #   driver: local
+
+networks:
+  preservation-network:
+    external: true
