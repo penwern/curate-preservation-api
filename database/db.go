@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/penwern/curate-preservation-core-api/pkg/logger"
+	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
 // Database represents a database connection

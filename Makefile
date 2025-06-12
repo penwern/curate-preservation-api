@@ -3,7 +3,7 @@ BINARY_NAME=preservation-api
 VERSION?=dev
 GIT_COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS=-ldflags "-X github.com/penwern/curate-preservation-core-api/cmd.Version=$(VERSION) -X github.com/penwern/curate-preservation-core-api/cmd.GitCommit=$(GIT_COMMIT) -X github.com/penwern/curate-preservation-core-api/cmd.BuildDate=$(BUILD_DATE)"
+LDFLAGS=-ldflags "-X github.com/penwern/curate-preservation-api/cmd.Version=$(VERSION) -X github.com/penwern/curate-preservation-api/cmd.GitCommit=$(GIT_COMMIT) -X github.com/penwern/curate-preservation-api/cmd.BuildDate=$(BUILD_DATE)"
 
 .PHONY: build clean test run help install deps
 

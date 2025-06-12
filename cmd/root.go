@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/penwern/curate-preservation-core-api/pkg/logger"
+	"github.com/penwern/curate-preservation-api/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

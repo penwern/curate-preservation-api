@@ -24,9 +24,9 @@ ARG BUILD_DATE=unknown
 # Build the application with version information
 RUN CGO_ENABLED=1 GOOS=linux go build -a \
     -ldflags "-extldflags '-static' \
-    -X github.com/penwern/curate-preservation-core-api/cmd.Version=${VERSION} \
-    -X github.com/penwern/curate-preservation-core-api/cmd.GitCommit=${GIT_COMMIT} \
-    -X github.com/penwern/curate-preservation-core-api/cmd.BuildDate=${BUILD_DATE}" \
+    -X github.com/penwern/curate-preservation-api/cmd.Version=${VERSION} \
+    -X github.com/penwern/curate-preservation-api/cmd.GitCommit=${GIT_COMMIT} \
+    -X github.com/penwern/curate-preservation-api/cmd.BuildDate=${BUILD_DATE}" \
     -o preservation-api .
 
 # Final stage

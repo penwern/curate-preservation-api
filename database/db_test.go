@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/penwern/curate-preservation-core-api/models"
+	"github.com/penwern/curate-preservation-api/models"
 	transferservice "github.com/penwern/curate-preservation-core/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
 )
 

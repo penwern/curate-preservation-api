@@ -6,7 +6,7 @@ import (
 
 	"slices"
 
-	"github.com/penwern/curate-preservation-core-api/config"
+	"github.com/penwern/curate-preservation-api/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/penwern/curate-preservation-core-api/config"
-	"github.com/penwern/curate-preservation-core-api/database"
-	"github.com/penwern/curate-preservation-core-api/models"
-	"github.com/penwern/curate-preservation-core-api/pkg/logger"
+	"github.com/penwern/curate-preservation-api/config"
+	"github.com/penwern/curate-preservation-api/database"
+	"github.com/penwern/curate-preservation-api/models"
+	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
 func setupTestServer(t *testing.T) *Server {

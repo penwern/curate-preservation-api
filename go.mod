@@ -1,4 +1,4 @@
-module github.com/penwern/curate-preservation-core-api
+module github.com/penwern/curate-preservation-api
 
 go 1.24.1
 

@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/penwern/curate-preservation-core-api/models"
-	"github.com/penwern/curate-preservation-core-api/pkg/logger"
+	"github.com/penwern/curate-preservation-api/models"
+	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
 var (
