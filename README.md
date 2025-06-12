@@ -26,34 +26,102 @@ A standalone Go application that provides RESTful API endpoints for managing dig
 
 ## Usage
 
+The application uses the Cobra CLI framework for command-line interface management. All commands support both command-line flags and configuration files.
+
+### Building the Application
+
+```bash
+# Build with version information
+make build
+
+# Build for multiple platforms
+make build-all
+
+# Clean build artifacts
+make clean
+```
+
 ### Running the API Server
 
 ```bash
 # Run with default settings (SQLite3 database in current directory)
-go run main.go
+./preservation-api serve
 
 # Run with custom port (default is 6910)
-go run main.go --port 8080
+./preservation-api serve --port 8080
 
 # Run with MySQL
-go run main.go --db mysql --conn "user:password@tcp(localhost:3306)/dbname"
+./preservation-api serve --db-type mysql --db-connection "user:password@tcp(localhost:3306)/dbname"
 
 # Run with SQLite3 file in specific location
-go run main.go --db sqlite3 --conn "/path/to/database.db"
+./preservation-api serve --db-type sqlite3 --db-connection "/path/to/database.db"
 
 # Run with configuration file
-go run main.go --config config.json
+./preservation-api serve --config config.yaml
+
+# Run with custom log level
+./preservation-api serve --log-level debug
+```
+
+### Available Commands
+
+```bash
+# Show help for all commands
+./preservation-api --help
+
+# Show version information
+./preservation-api version
+
+# Generate a sample configuration file
+./preservation-api config generate [filename]
+
+# Validate a configuration file
+./preservation-api config validate [filename]
+
+# Start the API server
+./preservation-api serve
 ```
 
 ### Configuration File Format
 
+The application supports YAML configuration files:
+
+```yaml
+db:
+  type: sqlite3
+  connection: preservation_configs.db
+server:
+  port: 6910
+log:
+  level: info
+```
+
+You can also use JSON format:
+
 ```json
 {
-  "db_type": "mysql",
-  "db_connection": "user:password@tcp(localhost:3306)/dbname",
-  "port": 8080
+  "db": {
+    "type": "mysql",
+    "connection": "user:password@tcp(localhost:3306)/dbname"
+  },
+  "server": {
+    "port": 8080
+  },
+  "log": {
+    "level": "debug"
+  }
 }
 ```
+
+### Global Flags
+
+All commands support these global flags:
+
+- `--config`: Path to configuration file (default: `$HOME/.preservation-api.yaml`)
+- `--db-type`: Database type - `sqlite3` or `mysql` (default: `sqlite3`)
+- `--db-connection`: Database connection string (default: `preservation_configs.db`)
+- `--port`: Server port (default: `6910`)
+- `--log-level`: Log level - `debug`, `info`, `warn`, `error`, `fatal`, `panic` (default: `info`)
 
 ## API Usage Examples
 
