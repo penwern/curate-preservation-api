@@ -1,3 +1,4 @@
+// Package server provides HTTP server functionality for the preservation API.
 package server
 
 import (
@@ -36,14 +37,14 @@ func (s *Server) routes() {
 
 // handleHealth returns a health check handler
 func (s *Server) handleHealth() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		respondWithJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
 // handleListConfigs returns a handler to list all preservation configs
 func (s *Server) handleListConfigs() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		logger.Info("Fetching all preservation configs")
 		configs, err := s.db.ListConfigs()
 		if err != nil {

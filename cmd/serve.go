@@ -20,7 +20,7 @@ var serveCmd = &cobra.Command{
 	
 The server will listen on the configured port and handle REST API requests
 for managing preservation configurations and workflows.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		runServer()
 	},
 }

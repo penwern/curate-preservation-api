@@ -1,4 +1,4 @@
-// in models/a3m_config.go
+// Package models defines data structures for the preservation API.
 package models
 
 import (

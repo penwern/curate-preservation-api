@@ -1,3 +1,4 @@
+// Package server provides HTTP server functionality for the preservation API.
 package server
 
 import (
@@ -42,7 +43,11 @@ func New(cfg config.Config) (*Server, error) {
 	server := &Server{
 		router: router,
 		db:     db,
-		srv:    &http.Server{Addr: fmt.Sprintf(":%d", cfg.Port), Handler: router},
+		srv: &http.Server{
+			Addr:              fmt.Sprintf(":%d", cfg.Port),
+			Handler:           router,
+			ReadHeaderTimeout: 15 * time.Second,
+		},
 	}
 
 	// Register routes
@@ -80,7 +85,9 @@ func respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(b)
+	if _, err := w.Write(b); err != nil {
+		logger.Error("Failed to write response: %v", err)
+	}
 }
 
 // respondWithError writes an error response

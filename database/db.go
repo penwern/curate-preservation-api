@@ -1,3 +1,4 @@
+// Package database provides database connectivity and operations for the preservation API.
 package database
 
 import (
@@ -5,9 +6,18 @@ import (
 	"errors"
 	"fmt"
 
+	// MySQL driver for database/sql
 	_ "github.com/go-sql-driver/mysql"
+	// SQLite3 driver for database/sql
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
+)
+
+const (
+	// DBTypeSQLite represents the SQLite database type
+	DBTypeSQLite = "sqlite3"
+	// DBTypeMySQL represents the MySQL database type
+	DBTypeMySQL = "mysql"
 )
 
 // Database represents a database connection
@@ -18,7 +28,7 @@ type Database struct {
 
 // New creates a new database connection
 func New(dbType, connString string) (*Database, error) {
-	if dbType != "sqlite3" && dbType != "mysql" {
+	if dbType != DBTypeSQLite && dbType != DBTypeMySQL {
 		return nil, errors.New("unsupported database type, must be 'sqlite3' or 'mysql'")
 	}
 
@@ -59,7 +69,8 @@ func (d *Database) Close() error {
 func (d *Database) initialize() error {
 	var createTableSQL string
 
-	if d.dbType == "sqlite3" {
+	switch d.dbType {
+	case DBTypeSQLite:
 		createTableSQL = `
 		CREATE TABLE IF NOT EXISTS preservation_configs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +96,7 @@ func (d *Database) initialize() error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`
-	} else if d.dbType == "mysql" {
+	case DBTypeMySQL:
 		createTableSQL = `
 		CREATE TABLE IF NOT EXISTS preservation_configs (
 			id INT AUTO_INCREMENT PRIMARY KEY,
@@ -119,7 +130,7 @@ func (d *Database) initialize() error {
 	}
 
 	// Create trigger for SQLite to auto-update updated_at field
-	if d.dbType == "sqlite3" {
+	if d.dbType == DBTypeSQLite {
 		triggerSQL := `
 		CREATE TRIGGER IF NOT EXISTS update_preservation_configs_updated_at
 		AFTER UPDATE ON preservation_configs

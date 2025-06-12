@@ -15,6 +15,12 @@ import (
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
+const (
+	testDBType       = "sqlite3"
+	testOriginalName = "Original Name"
+	testOriginalDesc = "Original Description"
+)
+
 func setupTestServer(t *testing.T) *Server {
 	t.Helper()
 
@@ -24,7 +30,7 @@ func setupTestServer(t *testing.T) *Server {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	cfg := config.Config{
-		DBType:       "sqlite3",
+		DBType:       testDBType,
 		DBConnection: dbPath,
 		Port:         8080,
 	}
@@ -42,7 +48,7 @@ func TestServer_New(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	cfg := config.Config{
-		DBType:       "sqlite3",
+		DBType:       testDBType,
 		DBConnection: dbPath,
 		Port:         8080,
 	}
@@ -423,7 +429,7 @@ func TestServer_HandleUpdateConfig(t *testing.T) {
 	defer server.Shutdown()
 
 	// First create a config
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	err := server.db.CreateConfig(config)
 	if err != nil {
 		t.Fatalf("Failed to create test config: %v", err)
@@ -472,7 +478,7 @@ func TestServer_HandleUpdateConfig_PartialUpdate(t *testing.T) {
 	defer server.Shutdown()
 
 	// First create a config with specific values
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	config.A3MConfig.ExamineContents = false
 	config.A3MConfig.Normalize = true
 	config.A3MConfig.AipCompressionLevel = 1
@@ -523,8 +529,8 @@ func TestServer_HandleUpdateConfig_PartialUpdate(t *testing.T) {
 	}
 
 	// Check that unspecified fields remained unchanged
-	if updatedConfig.Name != "Original Name" {
-		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	if updatedConfig.Name != testOriginalName {
+		t.Errorf("Expected name to remain '%s', got '%s'", testOriginalName, updatedConfig.Name)
 	}
 	if !updatedConfig.A3MConfig.Normalize {
 		t.Error("Expected Normalize to remain true (unchanged)")
@@ -539,7 +545,7 @@ func TestServer_HandleUpdateConfig_OnlyA3MConfig(t *testing.T) {
 	defer server.Shutdown()
 
 	// First create a config
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	err := server.db.CreateConfig(config)
 	if err != nil {
 		t.Fatalf("Failed to create test config: %v", err)
@@ -580,11 +586,11 @@ func TestServer_HandleUpdateConfig_OnlyA3MConfig(t *testing.T) {
 	}
 
 	// Check that basic fields remained unchanged
-	if updatedConfig.Name != "Original Name" {
-		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	if updatedConfig.Name != testOriginalName {
+		t.Errorf("Expected name to remain '%s', got '%s'", testOriginalName, updatedConfig.Name)
 	}
-	if updatedConfig.Description != "Original Description" {
-		t.Errorf("Expected description to remain 'Original Description', got '%s'", updatedConfig.Description)
+	if updatedConfig.Description != testOriginalDesc {
+		t.Errorf("Expected description to remain '%s', got '%s'", testOriginalDesc, updatedConfig.Description)
 	}
 
 	// Check that A3M config fields were updated
@@ -612,7 +618,7 @@ func TestServer_HandleUpdateConfig_EmptyDescription(t *testing.T) {
 	defer server.Shutdown()
 
 	// First create a config
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	err := server.db.CreateConfig(config)
 	if err != nil {
 		t.Fatalf("Failed to create test config: %v", err)
@@ -653,8 +659,8 @@ func TestServer_HandleUpdateConfig_EmptyDescription(t *testing.T) {
 	}
 
 	// Check that name remained unchanged
-	if updatedConfig.Name != "Original Name" {
-		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	if updatedConfig.Name != testOriginalName {
+		t.Errorf("Expected name to remain '%s', got '%s'", testOriginalName, updatedConfig.Name)
 	}
 }
 
@@ -845,7 +851,7 @@ func TestServer_HandleUpdateConfig_IDMismatch(t *testing.T) {
 	defer server.Shutdown()
 
 	// First create a config
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	err := server.db.CreateConfig(config)
 	if err != nil {
 		t.Fatalf("Failed to create test config: %v", err)
@@ -882,7 +888,7 @@ func TestServer_HandleUpdateConfig_NoFieldsProvided(t *testing.T) {
 	defer server.Shutdown()
 
 	// First create a config
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	err := server.db.CreateConfig(config)
 	if err != nil {
 		t.Fatalf("Failed to create test config: %v", err)
@@ -916,10 +922,10 @@ func TestServer_HandleUpdateConfig_NoFieldsProvided(t *testing.T) {
 	}
 
 	// Check that nothing changed
-	if updatedConfig.Name != "Original Name" {
-		t.Errorf("Expected name to remain 'Original Name', got '%s'", updatedConfig.Name)
+	if updatedConfig.Name != testOriginalName {
+		t.Errorf("Expected name to remain '%s', got '%s'", testOriginalName, updatedConfig.Name)
 	}
-	if updatedConfig.Description != "Original Description" {
-		t.Errorf("Expected description to remain 'Original Description', got '%s'", updatedConfig.Description)
+	if updatedConfig.Description != testOriginalDesc {
+		t.Errorf("Expected description to remain '%s', got '%s'", testOriginalDesc, updatedConfig.Description)
 	}
 }

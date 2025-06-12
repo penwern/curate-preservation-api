@@ -9,13 +9,19 @@ import (
 	transferservice "github.com/penwern/curate-preservation-core/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
 )
 
+const (
+	testDBType       = "sqlite3"
+	testOriginalName = "Original Name"
+	testOriginalDesc = "Original Description"
+)
+
 func setupTestDB(t *testing.T) *Database {
 	t.Helper()
 
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	db, err := New("sqlite3", dbPath)
+	db, err := New(testDBType, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -27,14 +33,14 @@ func TestNew_SQLite(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	db, err := New("sqlite3", dbPath)
+	db, err := New(testDBType, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create SQLite database: %v", err)
 	}
 	defer db.Close()
 
-	if db.dbType != "sqlite3" {
-		t.Errorf("Expected dbType 'sqlite3', got '%s'", db.dbType)
+	if db.dbType != testDBType {
+		t.Errorf("Expected dbType '%s', got '%s'", testDBType, db.dbType)
 	}
 }
 
@@ -51,7 +57,7 @@ func TestNew_UnsupportedDBType(t *testing.T) {
 }
 
 func TestNew_InvalidConnectionString(t *testing.T) {
-	_, err := New("sqlite3", "/invalid/path/that/does/not/exist/test.db")
+	_, err := New(testDBType, "/invalid/path/that/does/not/exist/test.db")
 	if err == nil {
 		t.Error("Expected error for invalid connection string, got nil")
 	}
@@ -153,7 +159,7 @@ func TestDatabase_UpdateConfig(t *testing.T) {
 	defer db.Close()
 
 	// Create initial config
-	config := models.NewPreservationConfig("Original Name", "Original Description")
+	config := models.NewPreservationConfig(testOriginalName, testOriginalDesc)
 	err := db.CreateConfig(config)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
@@ -243,7 +249,7 @@ func TestDatabase_Close(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	db, err := New("sqlite3", dbPath)
+	db, err := New(testDBType, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}

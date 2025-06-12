@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	// ErrNotFound is returned when a preservation config is not found in the database
 	ErrNotFound = errors.New("preservation config not found")
 )
 
@@ -16,53 +17,27 @@ var (
 func (d *Database) CreateConfig(config *models.PreservationConfig) error {
 	logger.Debug("Creating new preservation config: %s", config.Name)
 
-	var query string
-
-	if d.dbType == "sqlite3" {
-		query = `
-		INSERT INTO preservation_configs (
-			name, description, 
-			assign_uuids_to_directories,
-			examine_contents,
-			generate_transfer_structure_report,
-			document_empty_directories,
-			extract_packages,
-			delete_packages_after_extraction,
-			identify_transfer,
-			identify_submission_and_metadata,
-			identify_before_normalization,
-			normalize,
-			transcribe_files,
-			perform_policy_checks_on_originals,
-			perform_policy_checks_on_preservation_derivatives,
-			perform_policy_checks_on_access_derivatives,
-			thumbnail_mode,
-			aip_compression_level,
-			aip_compression_algorithm
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	} else {
-		query = `
-		INSERT INTO preservation_configs (
-			name, description, 
-			assign_uuids_to_directories,
-			examine_contents,
-			generate_transfer_structure_report,
-			document_empty_directories,
-			extract_packages,
-			delete_packages_after_extraction,
-			identify_transfer,
-			identify_submission_and_metadata,
-			identify_before_normalization,
-			normalize,
-			transcribe_files,
-			perform_policy_checks_on_originals,
-			perform_policy_checks_on_preservation_derivatives,
-			perform_policy_checks_on_access_derivatives,
-			thumbnail_mode,
-			aip_compression_level,
-			aip_compression_algorithm
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	}
+	query := `
+	INSERT INTO preservation_configs (
+		name, description, 
+		assign_uuids_to_directories,
+		examine_contents,
+		generate_transfer_structure_report,
+		document_empty_directories,
+		extract_packages,
+		delete_packages_after_extraction,
+		identify_transfer,
+		identify_submission_and_metadata,
+		identify_before_normalization,
+		normalize,
+		transcribe_files,
+		perform_policy_checks_on_originals,
+		perform_policy_checks_on_preservation_derivatives,
+		perform_policy_checks_on_access_derivatives,
+		thumbnail_mode,
+		aip_compression_level,
+		aip_compression_algorithm
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := d.db.Exec(
 		query,
@@ -205,7 +180,11 @@ func (d *Database) ListConfigs() ([]*models.PreservationConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			logger.Error("Failed to close rows: %v", err)
+		}
+	}()
 
 	var configs []*models.PreservationConfig
 	for rows.Next() {

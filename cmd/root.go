@@ -47,10 +47,18 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error, fatal, panic)")
 
 	// Bind flags to viper
-	viper.BindPFlag("db.type", rootCmd.PersistentFlags().Lookup("db-type"))
-	viper.BindPFlag("db.connection", rootCmd.PersistentFlags().Lookup("db-connection"))
-	viper.BindPFlag("server.port", rootCmd.PersistentFlags().Lookup("port"))
-	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
+	if err := viper.BindPFlag("db.type", rootCmd.PersistentFlags().Lookup("db-type")); err != nil {
+		logger.Error("Failed to bind db.type flag: %v", err)
+	}
+	if err := viper.BindPFlag("db.connection", rootCmd.PersistentFlags().Lookup("db-connection")); err != nil {
+		logger.Error("Failed to bind db.connection flag: %v", err)
+	}
+	if err := viper.BindPFlag("server.port", rootCmd.PersistentFlags().Lookup("port")); err != nil {
+		logger.Error("Failed to bind server.port flag: %v", err)
+	}
+	if err := viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
+		logger.Error("Failed to bind log.level flag: %v", err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.

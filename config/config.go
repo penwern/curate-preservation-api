@@ -1,3 +1,4 @@
+// Package config provides configuration management for the preservation API.
 package config
 
 import (
@@ -16,6 +17,7 @@ type Config struct {
 func LoadFromFile(path string) (Config, error) {
 	var cfg Config
 
+	//nolint:gosec // File path is controlled by user and validated by application
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return cfg, err
@@ -32,5 +34,5 @@ func (c Config) SaveToFile(path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
 }

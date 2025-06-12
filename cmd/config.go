@@ -1,12 +1,12 @@
+// Package cmd provides command-line interface commands for the preservation API.
 package cmd
 
 import (
-	"fmt"
 	"os"
-
 	"slices"
 
 	"github.com/penwern/curate-preservation-api/config"
+	"github.com/penwern/curate-preservation-api/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,7 +26,7 @@ var configGenerateCmd = &cobra.Command{
 	
 If no filename is provided, it will create .preservation-api.yaml in the current directory.`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		filename := ".preservation-api.yaml"
 		if len(args) > 0 {
 			filename = args[0]
@@ -41,11 +41,11 @@ If no filename is provided, it will create .preservation-api.yaml in the current
 		// Write config file
 		err := viper.WriteConfigAs(filename)
 		if err != nil {
-			fmt.Printf("Error generating config file: %v\n", err)
+			logger.Error("Error generating config file: %v", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Configuration file generated: %s\n", filename)
+		logger.Info("Configuration file generated: %s", filename)
 	},
 }
 
@@ -55,7 +55,7 @@ var configValidateCmd = &cobra.Command{
 	Short: "Validate a configuration file",
 	Long:  `Validate the syntax and values in a configuration file.`,
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		filename := ""
 		if len(args) > 0 {
 			filename = args[0]
@@ -68,7 +68,7 @@ var configValidateCmd = &cobra.Command{
 
 		err := viper.ReadInConfig()
 		if err != nil {
-			fmt.Printf("Error reading config file: %v\n", err)
+			logger.Error("Error reading config file: %v", err)
 			os.Exit(1)
 		}
 
@@ -81,17 +81,17 @@ var configValidateCmd = &cobra.Command{
 
 		// Basic validation
 		if cfg.DBType != "sqlite3" && cfg.DBType != "mysql" {
-			fmt.Printf("Error: Invalid database type '%s'. Must be 'sqlite3' or 'mysql'\n", cfg.DBType)
+			logger.Error("Error: Invalid database type '%s'. Must be 'sqlite3' or 'mysql'", cfg.DBType)
 			os.Exit(1)
 		}
 
 		if cfg.Port < 1 || cfg.Port > 65535 {
-			fmt.Printf("Error: Invalid port %d. Must be between 1 and 65535\n", cfg.Port)
+			logger.Error("Error: Invalid port %d. Must be between 1 and 65535", cfg.Port)
 			os.Exit(1)
 		}
 
 		if cfg.DBConnection == "" {
-			fmt.Printf("Error: Database connection string cannot be empty\n")
+			logger.Error("Error: Database connection string cannot be empty")
 			os.Exit(1)
 		}
 
@@ -99,15 +99,15 @@ var configValidateCmd = &cobra.Command{
 		validLogLevels := []string{"debug", "info", "warn", "error", "fatal", "panic"}
 		validLevel := slices.Contains(validLogLevels, logLevel)
 		if !validLevel {
-			fmt.Printf("Error: Invalid log level '%s'. Must be one of: %v\n", logLevel, validLogLevels)
+			logger.Error("Error: Invalid log level '%s'. Must be one of: %v", logLevel, validLogLevels)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Configuration file is valid\n")
-		fmt.Printf("Database Type: %s\n", cfg.DBType)
-		fmt.Printf("Database Connection: %s\n", cfg.DBConnection)
-		fmt.Printf("Server Port: %d\n", cfg.Port)
-		fmt.Printf("Log Level: %s\n", logLevel)
+		logger.Info("Configuration file is valid")
+		logger.Info("Database Type: %s", cfg.DBType)
+		logger.Info("Database Connection: %s", cfg.DBConnection)
+		logger.Info("Server Port: %d", cfg.Port)
+		logger.Info("Log Level: %s", logLevel)
 	},
 }
 
