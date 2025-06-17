@@ -6,17 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	// Import MySQL driver for database/sql
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" // required for MySQL driver registration
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
-
-	// Import file source driver for migrations
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	// Import SQLite driver for database/sql
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file" // required for file-based migrations
+	_ "github.com/mattn/go-sqlite3"                      // required for SQLite driver registration
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
