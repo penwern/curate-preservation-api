@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"runtime"
 
 	_ "github.com/go-sql-driver/mysql" // required for MySQL driver registration
 	"github.com/golang-migrate/migrate/v4"
@@ -68,11 +70,28 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
+// getMigrationsPath returns the absolute path to the migrations directory
+func getMigrationsPath(dbType string) (string, error) {
+	// Get the current file's directory
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("failed to get current file path")
+	}
+
+	// Get the directory containing this file (database package)
+	currentDir := filepath.Dir(filename)
+
+	// Build path to migrations directory
+	migrationsDir := filepath.Join(currentDir, "migrations", dbType)
+
+	// Convert to file:// URL format
+	return "file://" + filepath.ToSlash(migrationsDir), nil
+}
+
 // runMigrations runs all pending database migrations
 func (d *Database) runMigrations() error {
 	var driver database.Driver
 	var err error
-	var migrationsPath string
 
 	switch d.dbType {
 	case DBTypeSQLite:
@@ -80,15 +99,18 @@ func (d *Database) runMigrations() error {
 		if err != nil {
 			return fmt.Errorf("failed to create sqlite3 driver: %w", err)
 		}
-		migrationsPath = "file://database/migrations/sqlite"
 	case DBTypeMySQL:
 		driver, err = mysql.WithInstance(d.db, &mysql.Config{})
 		if err != nil {
 			return fmt.Errorf("failed to create mysql driver: %w", err)
 		}
-		migrationsPath = "file://database/migrations/mysql"
 	default:
 		return errors.New("unsupported database type for migrations")
+	}
+
+	migrationsPath, err := getMigrationsPath(d.dbType)
+	if err != nil {
+		return fmt.Errorf("failed to get migrations path: %w", err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
