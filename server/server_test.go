@@ -489,7 +489,8 @@ func TestServer_HandleUpdateConfig_PartialUpdate(t *testing.T) {
 
 	// Partial update - only update description and one A3M field
 	updateReq := map[string]any{
-		"description": "Updated Description Only",
+		"description":  "Updated Description Only",
+		"compress_aip": false,
 		"a3m_config": map[string]any{
 			"examine_contents": true, // Change this
 			// Don't specify other fields - they should remain unchanged
@@ -523,6 +524,9 @@ func TestServer_HandleUpdateConfig_PartialUpdate(t *testing.T) {
 	// Check that specified fields were updated
 	if updatedConfig.Description != "Updated Description Only" {
 		t.Errorf("Expected description 'Updated Description Only', got '%s'", updatedConfig.Description)
+	}
+	if updatedConfig.CompressAIP {
+		t.Error("Expected CompressAIP to be false")
 	}
 	if !updatedConfig.A3MConfig.ExamineContents {
 		t.Error("Expected ExamineContents to be updated to true")

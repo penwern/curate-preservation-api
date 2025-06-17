@@ -36,8 +36,9 @@ func (d *Database) CreateConfig(config *models.PreservationConfig) error {
 		perform_policy_checks_on_access_derivatives,
 		thumbnail_mode,
 		aip_compression_level,
-		aip_compression_algorithm
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		aip_compression_algorithm,
+		compress_aip
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := d.db.Exec(
 		query,
@@ -60,6 +61,7 @@ func (d *Database) CreateConfig(config *models.PreservationConfig) error {
 		config.A3MConfig.ThumbnailMode,
 		config.A3MConfig.AipCompressionLevel,
 		config.A3MConfig.AipCompressionAlgorithm,
+		config.CompressAIP,
 	)
 
 	if err != nil {
@@ -103,6 +105,7 @@ func (d *Database) GetConfig(id int64) (*models.PreservationConfig, error) {
 		thumbnail_mode,
 		aip_compression_level,
 		aip_compression_algorithm,
+		compress_aip,
 		created_at,
 		updated_at
 	FROM preservation_configs
@@ -130,6 +133,7 @@ func (d *Database) GetConfig(id int64) (*models.PreservationConfig, error) {
 		&config.A3MConfig.ThumbnailMode,
 		&config.A3MConfig.AipCompressionLevel,
 		&config.A3MConfig.AipCompressionAlgorithm,
+		&config.CompressAIP,
 		&config.CreatedAt,
 		&config.UpdatedAt,
 	)
@@ -171,6 +175,7 @@ func (d *Database) ListConfigs() ([]*models.PreservationConfig, error) {
 		thumbnail_mode,
 		aip_compression_level,
 		aip_compression_algorithm,
+		compress_aip,
 		created_at,
 		updated_at
 	FROM preservation_configs
@@ -210,6 +215,7 @@ func (d *Database) ListConfigs() ([]*models.PreservationConfig, error) {
 			&config.A3MConfig.ThumbnailMode,
 			&config.A3MConfig.AipCompressionLevel,
 			&config.A3MConfig.AipCompressionAlgorithm,
+			&config.CompressAIP,
 			&config.CreatedAt,
 			&config.UpdatedAt,
 		)
@@ -260,7 +266,8 @@ func (d *Database) UpdateConfig(config *models.PreservationConfig) error {
 		perform_policy_checks_on_access_derivatives = ?,
 		thumbnail_mode = ?,
 		aip_compression_level = ?,
-		aip_compression_algorithm = ?
+		aip_compression_algorithm = ?,
+		compress_aip = ?
 	WHERE id = ?`
 
 	_, err = d.db.Exec(
@@ -284,6 +291,7 @@ func (d *Database) UpdateConfig(config *models.PreservationConfig) error {
 		config.A3MConfig.ThumbnailMode,
 		config.A3MConfig.AipCompressionLevel,
 		config.A3MConfig.AipCompressionAlgorithm,
+		config.CompressAIP,
 		config.ID,
 	)
 

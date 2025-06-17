@@ -4,6 +4,7 @@ go 1.24.1
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/penwern/curate-preservation-core v0.1.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
@@ -15,7 +16,6 @@ require (
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
-	github.com/golang-migrate/migrate/v4 v4.18.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
