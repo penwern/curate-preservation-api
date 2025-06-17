@@ -16,17 +16,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build arguments for version information
-ARG VERSION=docker
-ARG GIT_COMMIT=unknown
-ARG BUILD_DATE=unknown
-
-# Build the application with version information
+# Build the application with buildvcs enabled
 RUN CGO_ENABLED=1 GOOS=linux go build -a \
-    -ldflags "-extldflags '-static' \
-    -X github.com/penwern/curate-preservation-api/cmd.Version=${VERSION} \
-    -X github.com/penwern/curate-preservation-api/cmd.GitCommit=${GIT_COMMIT} \
-    -X github.com/penwern/curate-preservation-api/cmd.BuildDate=${BUILD_DATE}" \
+    -ldflags "-extldflags '-static'" \
     -o preservation-api .
 
 # Final stage
