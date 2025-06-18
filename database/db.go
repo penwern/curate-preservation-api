@@ -3,18 +3,17 @@ package database
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"runtime"
 
 	_ "github.com/go-sql-driver/mysql" // required for MySQL driver registration
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
-	_ "github.com/golang-migrate/migrate/v4/source/file" // required for file-based migrations
-	_ "github.com/mattn/go-sqlite3"                      // required for SQLite driver registration
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "github.com/mattn/go-sqlite3" // required for SQLite driver registration
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
@@ -24,6 +23,14 @@ const (
 	// DBTypeMySQL represents the MySQL database type
 	DBTypeMySQL = "mysql"
 )
+
+// Embed migration files
+//
+//go:embed migrations/sqlite3/*.sql
+var sqlite3Migrations embed.FS
+
+//go:embed migrations/mysql/*.sql
+var mysqlMigrations embed.FS
 
 // Database represents a database connection
 type Database struct {
@@ -70,24 +77,6 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
-// getMigrationsPath returns the absolute path to the migrations directory
-func getMigrationsPath(dbType string) (string, error) {
-	// Get the current file's directory
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", errors.New("failed to get current file path")
-	}
-
-	// Get the directory containing this file (database package)
-	currentDir := filepath.Dir(filename)
-
-	// Build path to migrations directory
-	migrationsDir := filepath.Join(currentDir, "migrations", dbType)
-
-	// Convert to file:// URL format
-	return "file://" + filepath.ToSlash(migrationsDir), nil
-}
-
 // runMigrations runs all pending database migrations
 func (d *Database) runMigrations() error {
 	var driver database.Driver
@@ -108,16 +97,25 @@ func (d *Database) runMigrations() error {
 		return errors.New("unsupported database type for migrations")
 	}
 
-	migrationsPath, err := getMigrationsPath(d.dbType)
-	if err != nil {
-		return fmt.Errorf("failed to get migrations path: %w", err)
+	// Use embedded migrations
+	var migrationFS embed.FS
+	var migrationPath string
+
+	switch d.dbType {
+	case DBTypeSQLite:
+		migrationFS = sqlite3Migrations
+		migrationPath = "migrations/sqlite3"
+	case DBTypeMySQL:
+		migrationFS = mysqlMigrations
+		migrationPath = "migrations/mysql"
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		migrationsPath,
-		d.dbType,
-		driver,
-	)
+	sourceDriver, err := iofs.New(migrationFS, migrationPath)
+	if err != nil {
+		return fmt.Errorf("failed to create iofs source driver: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, d.dbType, driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
