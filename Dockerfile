@@ -36,6 +36,9 @@ WORKDIR /app
 # Copy the binary from builder stage
 COPY --from=builder /app/preservation-api .
 
+# Copy the database migrations directory
+COPY --from=builder /app/database/migrations ./database/migrations
+
 # Create data directory for SQLite database
 RUN mkdir -p /app/data && chown -R apiuser:apiuser /app
 
