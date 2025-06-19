@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/penwern/curate-preservation-api/config"
+	"github.com/penwern/curate-preservation-api/pkg/config"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 	"github.com/penwern/curate-preservation-api/server"
 	"github.com/spf13/cobra"

@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/penwern/curate-preservation-api/config"
 	"github.com/penwern/curate-preservation-api/database"
 	"github.com/penwern/curate-preservation-api/models"
+	"github.com/penwern/curate-preservation-api/pkg/config"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 

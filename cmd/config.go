@@ -5,7 +5,7 @@ import (
 	"os"
 	"slices"
 
-	"github.com/penwern/curate-preservation-api/config"
+	"github.com/penwern/curate-preservation-api/pkg/config"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

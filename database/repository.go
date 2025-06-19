@@ -8,10 +8,8 @@ import (
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
-var (
-	// ErrNotFound is returned when a preservation config is not found in the database
-	ErrNotFound = errors.New("preservation config not found")
-)
+// ErrNotFound is returned when a preservation config is not found in the database
+var ErrNotFound = errors.New("preservation config not found")
 
 // CreateConfig creates a new preservation configuration in the database
 func (d *Database) CreateConfig(config *models.PreservationConfig) error {
@@ -63,7 +61,6 @@ func (d *Database) CreateConfig(config *models.PreservationConfig) error {
 		config.A3MConfig.AipCompressionAlgorithm,
 		config.CompressAIP,
 	)
-
 	if err != nil {
 		logger.Error("Failed to create preservation config '%s': %v", config.Name, err)
 		return err
@@ -137,7 +134,6 @@ func (d *Database) GetConfig(id int64) (*models.PreservationConfig, error) {
 		&config.CreatedAt,
 		&config.UpdatedAt,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			logger.Debug("Preservation config not found: %d", id)

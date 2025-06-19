@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
-	"github.com/penwern/curate-preservation-api/config"
 	"github.com/penwern/curate-preservation-api/database"
+	"github.com/penwern/curate-preservation-api/pkg/config"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
