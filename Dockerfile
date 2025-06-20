@@ -42,6 +42,9 @@ COPY --from=builder /app/database/migrations ./database/migrations
 # Create data directory for SQLite database
 RUN mkdir -p /app/data && chown -R apiuser:apiuser /app
 
+# Create logs directory following Linux standards
+RUN mkdir -p /var/log/curate && chown -R apiuser:apiuser /var/log/curate
+
 # Switch to non-root user
 USER apiuser
 

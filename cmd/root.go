@@ -10,11 +10,12 @@ import (
 )
 
 var (
-	cfgFile  string
-	dbType   string
-	dbConn   string
-	port     int
-	logLevel string
+	cfgFile     string
+	dbType      string
+	dbConn      string
+	port        int
+	logLevel    string
+	logFilePath string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -45,6 +46,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&dbConn, "db-connection", "preservation_configs.db", "database connection string")
 	rootCmd.PersistentFlags().IntVar(&port, "port", 6910, "port to run the server on")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error, fatal, panic)")
+	rootCmd.PersistentFlags().StringVar(&logFilePath, "log-file", "", "log file path (default is /var/log/curate/curate-preservation-api.log)")
 
 	// Bind flags to viper
 	if err := viper.BindPFlag("db.type", rootCmd.PersistentFlags().Lookup("db-type")); err != nil {
@@ -58,6 +60,9 @@ func init() {
 	}
 	if err := viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		logger.Error("Failed to bind log.level flag: %v", err)
+	}
+	if err := viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log-file")); err != nil {
+		logger.Error("Failed to bind log.file flag: %v", err)
 	}
 }
 
@@ -85,10 +90,11 @@ func initConfig() {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
 
-	// Initialize logger with the configured level
+	// Initialize logger with the configured level and file path
 	logLevel := viper.GetString("log.level")
 	if logLevel == "" {
 		logLevel = "info"
 	}
-	logger.Initialize(logLevel)
+	logFilePath := viper.GetString("log.file")
+	logger.Initialize(logLevel, logFilePath)
 }

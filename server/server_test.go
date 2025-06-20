@@ -24,7 +24,7 @@ const (
 func setupTestServer(t *testing.T) *Server {
 	t.Helper()
 
-	logger.Initialize("debug")
+	logger.Initialize("debug", "")
 
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
