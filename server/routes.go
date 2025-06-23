@@ -137,6 +137,13 @@ func (s *Server) handleCreateConfig() http.HandlerFunc {
 
 		logger.Debug("Default Config: %+v", config)
 
+		// Handle compress_aip field if provided
+		if compressAIP, exists := rawInput["compress_aip"]; exists {
+			if compressBool, ok := compressAIP.(bool); ok {
+				config.CompressAIP = compressBool
+			}
+		}
+
 		// If A3M config is provided, merge it with defaults
 		if a3mConfig, exists := rawInput["a3m_config"]; exists {
 			if a3mMap, ok := a3mConfig.(map[string]any); ok {
@@ -219,6 +226,11 @@ func (s *Server) handleUpdateConfig() http.HandlerFunc {
 		if description, exists := rawUpdate["description"]; exists {
 			if descStr, ok := description.(string); ok {
 				updatedConfig.Description = descStr
+			}
+		}
+		if compressAIP, exists := rawUpdate["compress_aip"]; exists {
+			if compressBool, ok := compressAIP.(bool); ok {
+				updatedConfig.CompressAIP = compressBool
 			}
 		}
 
