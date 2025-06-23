@@ -181,6 +181,224 @@ func TestServer_HandleCreateConfig(t *testing.T) {
 	}
 }
 
+func TestServer_HandleCreateAllOnConfig(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	createReq := map[string]any{
+		"name":         "All On A3M Config",
+		"description":  "Config with all A3M settings on",
+		"compress_aip": true,
+		"a3m_config": map[string]any{
+			"assign_uuids_to_directories":                       true,
+			"examine_contents":                                  true,
+			"generate_transfer_structure_report":                true,
+			"document_empty_directories":                        true,
+			"extract_packages":                                  true,
+			"delete_packages_after_extraction":                  true,
+			"identify_transfer":                                 true,
+			"identify_submission_and_metadata":                  true,
+			"identify_before_normalization":                     true,
+			"normalize":                                         true,
+			"transcribe_files":                                  true,
+			"perform_policy_checks_on_originals":                true,
+			"perform_policy_checks_on_preservation_derivatives": true,
+			"perform_policy_checks_on_access_derivatives":       true,
+			"thumbnail_mode":                                    1,
+			"aip_compression_level":                             9,
+			"aip_compression_algorithm":                         3,
+		},
+	}
+
+	reqBody, err := json.Marshal(createReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var config models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &config)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if config.CompressAIP != true {
+		t.Errorf("Expected CompressAIP to be true, got %v", config.CompressAIP)
+	}
+	if config.A3MConfig.AssignUuidsToDirectories != true {
+		t.Errorf("Expected AssignUuidsToDirectories to be true, got %v", config.A3MConfig.AssignUuidsToDirectories)
+	}
+	if config.A3MConfig.ExamineContents != true {
+		t.Errorf("Expected ExamineContents to be true, got %v", config.A3MConfig.ExamineContents)
+	}
+	if config.A3MConfig.GenerateTransferStructureReport != true {
+		t.Errorf("Expected GenerateTransferStructureReport to be true, got %v", config.A3MConfig.GenerateTransferStructureReport)
+	}
+	if config.A3MConfig.DocumentEmptyDirectories != true {
+		t.Errorf("Expected DocumentEmptyDirectories to be true, got %v", config.A3MConfig.DocumentEmptyDirectories)
+	}
+	if config.A3MConfig.ExtractPackages != true {
+		t.Errorf("Expected ExtractPackages to be true, got %v", config.A3MConfig.ExtractPackages)
+	}
+	if config.A3MConfig.DeletePackagesAfterExtraction != true {
+		t.Errorf("Expected DeletePackagesAfterExtraction to be true, got %v", config.A3MConfig.DeletePackagesAfterExtraction)
+	}
+	if config.A3MConfig.IdentifyTransfer != true {
+		t.Errorf("Expected IdentifyTransfer to be true, got %v", config.A3MConfig.IdentifyTransfer)
+	}
+	if config.A3MConfig.IdentifySubmissionAndMetadata != true {
+		t.Errorf("Expected IdentifySubmissionAndMetadata to be true, got %v", config.A3MConfig.IdentifySubmissionAndMetadata)
+	}
+	if config.A3MConfig.IdentifyBeforeNormalization != true {
+		t.Errorf("Expected IdentifyBeforeNormalization to be true, got %v", config.A3MConfig.IdentifyBeforeNormalization)
+	}
+	if config.A3MConfig.Normalize != true {
+		t.Errorf("Expected Normalize to be true, got %v", config.A3MConfig.Normalize)
+	}
+	if config.A3MConfig.TranscribeFiles != true {
+		t.Errorf("Expected TranscribeFiles to be true, got %v", config.A3MConfig.TranscribeFiles)
+	}
+	if config.A3MConfig.PerformPolicyChecksOnOriginals != true {
+		t.Errorf("Expected PerformPolicyChecksOnOriginals to be true, got %v", config.A3MConfig.PerformPolicyChecksOnOriginals)
+	}
+	if config.A3MConfig.PerformPolicyChecksOnPreservationDerivatives != true {
+		t.Errorf("Expected PerformPolicyChecksOnPreservationDerivatives to be true, got %v", config.A3MConfig.PerformPolicyChecksOnPreservationDerivatives)
+	}
+	if config.A3MConfig.PerformPolicyChecksOnAccessDerivatives != true {
+		t.Errorf("Expected PerformPolicyChecksOnAccessDerivatives to be true, got %v", config.A3MConfig.PerformPolicyChecksOnAccessDerivatives)
+	}
+	if config.A3MConfig.ThumbnailMode != 1 {
+		t.Errorf("Expected ThumbnailMode to be 1, got %v", config.A3MConfig.ThumbnailMode)
+	}
+	if config.A3MConfig.AipCompressionLevel != 9 {
+		t.Errorf("Expected AipCompressionLevel to be 9, got %v", config.A3MConfig.AipCompressionLevel)
+	}
+	if config.A3MConfig.AipCompressionAlgorithm != 3 {
+		t.Errorf("Expected AipCompressionAlgorithm to be 3, got %v", config.A3MConfig.AipCompressionAlgorithm)
+	}
+}
+
+func TestServer_HandleCreateAllOffConfig(t *testing.T) {
+	server := setupTestServer(t)
+	defer server.Shutdown()
+
+	createReq := map[string]any{
+		"name":         "All Off A3M Config",
+		"description":  "Config with all A3M settings off",
+		"compress_aip": false,
+		"a3m_config": map[string]any{
+			"assign_uuids_to_directories":                       false,
+			"examine_contents":                                  false,
+			"generate_transfer_structure_report":                false,
+			"document_empty_directories":                        false,
+			"extract_packages":                                  false,
+			"delete_packages_after_extraction":                  false,
+			"identify_transfer":                                 false,
+			"identify_submission_and_metadata":                  false,
+			"identify_before_normalization":                     false,
+			"normalize":                                         false,
+			"transcribe_files":                                  false,
+			"perform_policy_checks_on_originals":                false,
+			"perform_policy_checks_on_preservation_derivatives": false,
+			"perform_policy_checks_on_access_derivatives":       false,
+			"thumbnail_mode":                                    3,
+			"aip_compression_level":                             1,
+			"aip_compression_algorithm":                         1,
+		},
+	}
+
+	reqBody, err := json.Marshal(createReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var config models.PreservationConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &config)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if config.CompressAIP != false {
+		t.Errorf("Expected CompressAIP to be false, got %v", config.CompressAIP)
+	}
+	if config.A3MConfig.AssignUuidsToDirectories != false {
+		t.Errorf("Expected AssignUuidsToDirectories to be true, got %v", config.A3MConfig.AssignUuidsToDirectories)
+	}
+	if config.A3MConfig.ExamineContents != false {
+		t.Errorf("Expected ExamineContents to be false, got %v", config.A3MConfig.ExamineContents)
+	}
+	if config.A3MConfig.GenerateTransferStructureReport != false {
+		t.Errorf("Expected GenerateTransferStructureReport to be true, got %v", config.A3MConfig.GenerateTransferStructureReport)
+	}
+	if config.A3MConfig.DocumentEmptyDirectories != false {
+		t.Errorf("Expected DocumentEmptyDirectories to be false, got %v", config.A3MConfig.DocumentEmptyDirectories)
+	}
+	if config.A3MConfig.ExtractPackages != false {
+		t.Errorf("Expected ExtractPackages to be true, got %v", config.A3MConfig.ExtractPackages)
+	}
+	if config.A3MConfig.DeletePackagesAfterExtraction != false {
+		t.Errorf("Expected DeletePackagesAfterExtraction to be false, got %v", config.A3MConfig.DeletePackagesAfterExtraction)
+	}
+	if config.A3MConfig.IdentifyTransfer != false {
+		t.Errorf("Expected IdentifyTransfer to be true, got %v", config.A3MConfig.IdentifyTransfer)
+	}
+	if config.A3MConfig.IdentifySubmissionAndMetadata != false {
+		t.Errorf("Expected IdentifySubmissionAndMetadata to be false, got %v", config.A3MConfig.IdentifySubmissionAndMetadata)
+	}
+	if config.A3MConfig.IdentifyBeforeNormalization != false {
+		t.Errorf("Expected IdentifyBeforeNormalization to be false, got %v", config.A3MConfig.IdentifyBeforeNormalization)
+	}
+	if config.A3MConfig.Normalize != false {
+		t.Errorf("Expected Normalize to be true, got %v", config.A3MConfig.Normalize)
+	}
+	if config.A3MConfig.TranscribeFiles != false {
+		t.Errorf("Expected TranscribeFiles to be false, got %v", config.A3MConfig.TranscribeFiles)
+	}
+	if config.A3MConfig.PerformPolicyChecksOnOriginals != false {
+		t.Errorf("Expected PerformPolicyChecksOnOriginals to be true, got %v", config.A3MConfig.PerformPolicyChecksOnOriginals)
+	}
+	if config.A3MConfig.PerformPolicyChecksOnPreservationDerivatives != false {
+		t.Errorf("Expected PerformPolicyChecksOnPreservationDerivatives to be false, got %v", config.A3MConfig.PerformPolicyChecksOnPreservationDerivatives)
+	}
+	if config.A3MConfig.PerformPolicyChecksOnAccessDerivatives != false {
+		t.Errorf("Expected PerformPolicyChecksOnAccessDerivatives to be true, got %v", config.A3MConfig.PerformPolicyChecksOnAccessDerivatives)
+	}
+	if config.A3MConfig.ThumbnailMode != 3 {
+		t.Errorf("Expected ThumbnailMode to be 3, got %v", config.A3MConfig.ThumbnailMode)
+	}
+	if config.A3MConfig.AipCompressionLevel != 1 {
+		t.Errorf("Expected AipCompressionLevel to be 1, got %v", config.A3MConfig.AipCompressionLevel)
+	}
+	if config.A3MConfig.AipCompressionAlgorithm != 1 {
+		t.Errorf("Expected AipCompressionAlgorithm to be 1, got %v", config.A3MConfig.AipCompressionAlgorithm)
+	}
+}
+
 func TestServer_HandleCreateConfig_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 	defer server.Shutdown()
