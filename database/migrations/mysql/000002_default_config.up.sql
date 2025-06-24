@@ -8,7 +8,7 @@ INSERT INTO preservation_configs (
     perform_policy_checks_on_preservation_derivatives, perform_policy_checks_on_access_derivatives,
     thumbnail_mode, aip_compression_level, aip_compression_algorithm
 ) VALUES (
-    'Default Configuration', 'Default preservation configuration with recommended settings',
+    'Default Configuration', 'Default preservation configuration for your one-click preservation',
     true, false, true,
     true, true, false,
     true, true, true,
