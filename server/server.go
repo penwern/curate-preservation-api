@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 	"github.com/penwern/curate-preservation-api/database"
 	"github.com/penwern/curate-preservation-api/pkg/config"
@@ -31,6 +32,25 @@ func New(cfg config.Config) (*Server, error) {
 	}
 
 	router := chi.NewRouter()
+
+	// CORS middleware - configure to allow requests from Pydio Cells
+	corsOrigins := cfg.CORSOrigins
+	if len(corsOrigins) == 0 {
+		// Default origins if none specified in config
+		corsOrigins = []string{
+			"https://localhost:8080",
+			"http://localhost:8080",
+		}
+	}
+
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   corsOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
 
 	// Middleware
 	router.Use(middleware.Logger)
