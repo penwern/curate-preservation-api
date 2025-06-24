@@ -18,18 +18,24 @@ import (
 func (s *Server) routes() {
 	// API version prefix
 	s.router.Route("/api/v1", func(r chi.Router) {
-		// Health check
+		// Health check (public, no auth required)
 		r.Get("/health", s.handleHealth())
 
-		// Preservation configurations
-		r.Route("/preservation-configs", func(r chi.Router) {
-			r.Get("/", s.handleListConfigs())
-			r.Post("/", s.handleCreateConfig())
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			// Apply authentication middleware to protected routes
+			r.Use(Auth)
 
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", s.handleGetConfig())
-				r.Put("/", s.handleUpdateConfig())
-				r.Delete("/", s.handleDeleteConfig())
+			// Preservation configurations
+			r.Route("/preservation-configs", func(r chi.Router) {
+				r.Get("/", s.handleListConfigs())
+				r.Post("/", s.handleCreateConfig())
+
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", s.handleGetConfig())
+					r.Put("/", s.handleUpdateConfig())
+					r.Delete("/", s.handleDeleteConfig())
+				})
 			})
 		})
 	})
