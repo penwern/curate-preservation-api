@@ -6,7 +6,6 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/golang-migrate/migrate/v4 v4.18.3
-	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	go.uber.org/zap v1.27.0
