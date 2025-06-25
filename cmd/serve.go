@@ -32,9 +32,12 @@ func init() {
 func runServer() {
 	// Load configuration from viper
 	cfg := config.Config{
-		DBType:       viper.GetString("db.type"),
-		DBConnection: viper.GetString("db.connection"),
-		Port:         viper.GetInt("server.port"),
+		DBType:           viper.GetString("db.type"),
+		DBConnection:     viper.GetString("db.connection"),
+		Port:             viper.GetInt("server.port"),
+		SiteDomain:       viper.GetString("server.site_domain"),
+		AllowInsecureTLS: viper.GetBool("server.allow_insecure_tls"),
+		TrustedIPs:       viper.GetStringSlice("server.trusted_ips"),
 	}
 
 	// Create and start the server

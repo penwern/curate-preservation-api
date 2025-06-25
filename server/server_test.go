@@ -31,6 +31,7 @@ func setupTestServer(t *testing.T) *Server {
 		DBType:       testDBType,
 		DBConnection: dbPath,
 		Port:         8080,
+		TrustedIPs:   []string{"127.0.0.1", "::1"}, // Allow localhost IPv4 and IPv6 for tests
 	}
 
 	server, err := New(cfg)
@@ -39,6 +40,27 @@ func setupTestServer(t *testing.T) *Server {
 	}
 
 	return server
+}
+
+// setupTestRequest creates an HTTP request with a trusted IP address for testing
+func setupTestRequest(method, url string, body *bytes.Buffer) *http.Request {
+	var req *http.Request
+	var err error
+
+	if body != nil {
+		req, err = http.NewRequest(method, url, body)
+	} else {
+		req, err = http.NewRequest(method, url, nil)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Set RemoteAddr to localhost so it matches our trusted IP
+	req.RemoteAddr = "127.0.0.1:12345"
+
+	return req
 }
 
 func TestServer_New(t *testing.T) {
@@ -112,10 +134,7 @@ func TestServer_HandleListConfigs_Empty(t *testing.T) {
 	server := setupTestServer(t)
 	defer server.Shutdown()
 
-	req, err := http.NewRequest("GET", "/api/v1/preservation-configs", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("GET", "/api/v1/preservation-configs", nil)
 
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -125,8 +144,7 @@ func TestServer_HandleListConfigs_Empty(t *testing.T) {
 	}
 
 	var configs []models.PreservationConfig
-	err = json.Unmarshal(rr.Body.Bytes(), &configs)
-	if err != nil {
+	if err := json.Unmarshal(rr.Body.Bytes(), &configs); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
@@ -149,10 +167,7 @@ func TestServer_HandleCreateConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -163,8 +178,7 @@ func TestServer_HandleCreateConfig(t *testing.T) {
 	}
 
 	var config models.PreservationConfig
-	err = json.Unmarshal(rr.Body.Bytes(), &config)
-	if err != nil {
+	if err := json.Unmarshal(rr.Body.Bytes(), &config); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
@@ -215,10 +229,7 @@ func TestServer_HandleCreateAllOnConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -324,10 +335,7 @@ func TestServer_HandleCreateAllOffConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -403,10 +411,7 @@ func TestServer_HandleCreateConfig_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 	defer server.Shutdown()
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer([]byte("invalid json")))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -430,10 +435,7 @@ func TestServer_HandleCreateConfig_MissingName(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -464,10 +466,7 @@ func TestServer_HandleCreateConfig_WithPartialA3MConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -539,10 +538,7 @@ func TestServer_HandleCreateConfig_WithFullA3MConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -584,11 +580,7 @@ func TestServer_HandleGetConfig(t *testing.T) {
 		t.Fatalf("Failed to create test config: %v", err)
 	}
 
-	// Now get it via the API
-	req, err := http.NewRequest("GET", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("GET", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), nil)
 
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -612,10 +604,7 @@ func TestServer_HandleGetConfig_NotFound(t *testing.T) {
 	server := setupTestServer(t)
 	defer server.Shutdown()
 
-	req, err := http.NewRequest("GET", "/api/v1/preservation-configs/999", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("GET", "/api/v1/preservation-configs/999", nil)
 
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -629,10 +618,7 @@ func TestServer_HandleGetConfig_InvalidID(t *testing.T) {
 	server := setupTestServer(t)
 	defer server.Shutdown()
 
-	req, err := http.NewRequest("GET", "/api/v1/preservation-configs/invalid", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("GET", "/api/v1/preservation-configs/invalid", nil)
 
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -667,10 +653,7 @@ func TestServer_HandleUpdateConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -720,10 +703,7 @@ func TestServer_HandleUpdateConfig_PartialUpdate(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -788,10 +768,7 @@ func TestServer_HandleUpdateConfig_OnlyA3MConfig(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -856,10 +833,7 @@ func TestServer_HandleUpdateConfig_EmptyDescription(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -898,10 +872,7 @@ func TestServer_HandleDeleteConfig(t *testing.T) {
 	}
 
 	// Delete it
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("DELETE", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), nil)
 
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -932,7 +903,7 @@ func TestServer_Integration_FullWorkflow(t *testing.T) {
 	defer server.Shutdown()
 
 	// 1. Check health
-	req, _ := http.NewRequest("GET", "/api/v1/health", nil)
+	req := setupTestRequest("GET", "/api/v1/health", nil)
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -940,7 +911,7 @@ func TestServer_Integration_FullWorkflow(t *testing.T) {
 	}
 
 	// 2. List configs (should be empty)
-	req, _ = http.NewRequest("GET", "/api/v1/preservation-configs", nil)
+	req = setupTestRequest("GET", "/api/v1/preservation-configs", nil)
 	rr = httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -953,7 +924,7 @@ func TestServer_Integration_FullWorkflow(t *testing.T) {
 		"description": "Created during integration test",
 	}
 	reqBody, _ := json.Marshal(createReq)
-	req, _ = http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
+	req = setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	rr = httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -965,7 +936,7 @@ func TestServer_Integration_FullWorkflow(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &createdConfig)
 
 	// 4. Get the created config
-	req, _ = http.NewRequest("GET", fmt.Sprintf("/api/v1/preservation-configs/%d", createdConfig.ID), nil)
+	req = setupTestRequest("GET", fmt.Sprintf("/api/v1/preservation-configs/%d", createdConfig.ID), nil)
 	rr = httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -978,7 +949,7 @@ func TestServer_Integration_FullWorkflow(t *testing.T) {
 		"description": "Updated during integration test",
 	}
 	reqBody, _ = json.Marshal(updateReq)
-	req, _ = http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", createdConfig.ID), bytes.NewBuffer(reqBody))
+	req = setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", createdConfig.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	rr = httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
@@ -987,7 +958,7 @@ func TestServer_Integration_FullWorkflow(t *testing.T) {
 	}
 
 	// 6. Delete the config
-	req, _ = http.NewRequest("DELETE", fmt.Sprintf("/api/v1/preservation-configs/%d", createdConfig.ID), nil)
+	req = setupTestRequest("DELETE", fmt.Sprintf("/api/v1/preservation-configs/%d", createdConfig.ID), nil)
 	rr = httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusNoContent {
@@ -1024,7 +995,7 @@ func TestServer_CORS_Methods(t *testing.T) {
 				}
 			}
 
-			req, _ := http.NewRequest(method, url, bytes.NewBuffer(body))
+			req := setupTestRequest(method, url, bytes.NewBuffer(body))
 			if len(body) > 0 {
 				req.Header.Set("Content-Type", "application/json")
 			}
@@ -1054,10 +1025,7 @@ func TestServer_HandleCreateConfig_EmptyName(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("POST", "/api/v1/preservation-configs", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -1091,10 +1059,7 @@ func TestServer_HandleUpdateConfig_IDMismatch(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
@@ -1124,10 +1089,7 @@ func TestServer_HandleUpdateConfig_NoFieldsProvided(t *testing.T) {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	req := setupTestRequest("PUT", fmt.Sprintf("/api/v1/preservation-configs/%d", config.ID), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
