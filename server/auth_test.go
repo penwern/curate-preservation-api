@@ -10,7 +10,7 @@ import (
 )
 
 func TestTrustedIPAuthentication(t *testing.T) {
-	logger.Initialize("debug", "")
+	logger.Initialize("debug", "/tmp/curate-preservation-api.log")
 
 	// Test configuration with trusted IPs
 	cfg := config.Config{
