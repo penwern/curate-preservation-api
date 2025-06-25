@@ -1,4 +1,4 @@
-name: build-ubuntu
+name: build-and-test
 
 on:
   push:
@@ -13,12 +13,20 @@ permissions:
   pull-requests: read
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libxml2-dev \
+          pkg-config \
+          build-essential
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -27,16 +35,35 @@ jobs:
         cache: true
         cache-dependency-path: '**/go.sum'
 
+    - name: Run go mod tidy
+      run: go mod tidy
+
+    - name: Verify go mod tidy
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "go.mod or go.sum is not up to date"
+          git diff
+          exit 1
+        fi
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+
     - name: Build
+      env:
+        CGO_ENABLED: 1
+        PKG_CONFIG_PATH: "/usr/lib/pkgconfig"
       run: go build -v ./...
       timeout-minutes: 5
 
-    # - name: Test
-    #   run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-    #   timeout-minutes: 5
-
-    # - name: Upload coverage
-    #   uses: codecov/codecov-action@v4
-    #   with:
-    #     files: ./coverage.txt
-    #     fail_ci_if_error: false
+    - name: Test
+      env:
+        CGO_ENABLED: 1
+        PKG_CONFIG_PATH: "/usr/lib/pkgconfig"
+      run: go test -v -race ./...
+      timeout-minutes: 5
