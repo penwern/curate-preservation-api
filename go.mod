@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/golang-migrate/migrate/v4 v4.18.3
-	github.com/penwern/curate-preservation-core v0.1.2
+	github.com/penwern/curate-preservation-core v0.1.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	go.uber.org/zap v1.27.0
