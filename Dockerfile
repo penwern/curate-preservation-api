@@ -7,25 +7,30 @@ RUN apk add --no-cache git ca-certificates gcc musl-dev make
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
+# Download dependencies with cache mount
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
 # Copy source code
 COPY . .
 
-# Build the application with buildvcs enabled
-RUN CGO_ENABLED=1 GOOS=linux go build -a \
-    -ldflags "-extldflags '-static'" \
+# Build the application with cache mounts and optimized flags
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags "-s -w -extldflags '-static'" \
+    -trimpath \
     -o preservation-api .
 
 # Final stage
 FROM alpine:latest
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates sqlite wget
+RUN apk --no-cache add ca-certificates sqlite wget curl
 
 # Create non-root user
 RUN adduser -D -s /bin/sh apiuser
