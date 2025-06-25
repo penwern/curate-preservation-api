@@ -24,8 +24,6 @@ const (
 func setupTestServer(t *testing.T) *Server {
 	t.Helper()
 
-	logger.Initialize("debug", "/tmp/curate-preservation-api.log")
-
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
@@ -44,6 +42,8 @@ func setupTestServer(t *testing.T) *Server {
 }
 
 func TestServer_New(t *testing.T) {
+	logger.Initialize("debug", "/tmp/curate-preservation-api.log")
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 

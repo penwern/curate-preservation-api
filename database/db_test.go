@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/penwern/curate-preservation-api/models"
+	"github.com/penwern/curate-preservation-api/pkg/logger"
 	transferservice "github.com/penwern/curate-preservation-core/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
 )
 
@@ -17,6 +18,8 @@ const (
 
 func setupTestDB(t *testing.T) *Database {
 	t.Helper()
+
+	logger.Initialize("debug", "/tmp/curate-preservation-api.log")
 
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
@@ -30,6 +33,8 @@ func setupTestDB(t *testing.T) *Database {
 }
 
 func TestNew_SQLite(t *testing.T) {
+	logger.Initialize("debug", "/tmp/curate-preservation-api.log")
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
