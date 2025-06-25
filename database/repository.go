@@ -149,8 +149,6 @@ func (d *Database) GetConfig(id int64) (*models.PreservationConfig, error) {
 
 // ListConfigs retrieves all preservation configurations
 func (d *Database) ListConfigs() ([]*models.PreservationConfig, error) {
-	logger.Debug("Fetching all preservation configs")
-
 	query := `
 	SELECT 
 		id, name, description, 

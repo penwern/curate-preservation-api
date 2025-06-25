@@ -19,12 +19,13 @@ func (s *Server) routes() {
 	// API version prefix
 	s.router.Route("/api/v1", func(r chi.Router) {
 		// Health check (public, no auth required)
-		r.Get("/health", s.handleHealth())
+		r.Method("GET", "/health", s.handleHealth())
+		r.Method("HEAD", "/health", s.handleHealth())
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
-			// Apply authentication middleware to protected routes
-			r.Use(Auth)
+			// Apply authentication middleware to protected routes with configured site domain and trusted IPs
+			r.Use(Auth(s.config.SiteDomain, s.config.TrustedIPs, s.config.AllowInsecureTLS))
 
 			// Preservation configurations
 			r.Route("/preservation-configs", func(r chi.Router) {

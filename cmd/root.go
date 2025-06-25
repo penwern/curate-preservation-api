@@ -10,12 +10,15 @@ import (
 )
 
 var (
-	cfgFile     string
-	dbType      string
-	dbConn      string
-	port        int
-	logLevel    string
-	logFilePath string
+	cfgFile          string
+	dbType           string
+	dbConn           string
+	port             int
+	siteDomain       string
+	logLevel         string
+	logFilePath      string
+	allowInsecureTLS bool
+	trustedIPs       []string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -45,8 +48,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&dbType, "db-type", "sqlite3", "database type (sqlite3 or mysql)")
 	rootCmd.PersistentFlags().StringVar(&dbConn, "db-connection", "preservation_configs.db", "database connection string")
 	rootCmd.PersistentFlags().IntVar(&port, "port", 6910, "port to run the server on")
+	rootCmd.PersistentFlags().StringVar(&siteDomain, "site-domain", "https://localhost:8080", "site domain for Pydio Cells OIDC and user endpoints")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error, fatal, panic)")
 	rootCmd.PersistentFlags().StringVar(&logFilePath, "log-file", "", "log file path (default is /var/log/curate/curate-preservation-api.log)")
+	rootCmd.PersistentFlags().BoolVar(&allowInsecureTLS, "allow-insecure-tls", false, "allow insecure TLS connections when making OIDC/Pydio requests")
+	rootCmd.PersistentFlags().StringSliceVar(&trustedIPs, "trusted-ips", []string{}, "comma-separated list of trusted IP addresses/CIDR ranges that bypass authentication")
 
 	// Bind flags to viper
 	if err := viper.BindPFlag("db.type", rootCmd.PersistentFlags().Lookup("db-type")); err != nil {
@@ -58,11 +64,20 @@ func init() {
 	if err := viper.BindPFlag("server.port", rootCmd.PersistentFlags().Lookup("port")); err != nil {
 		logger.Error("Failed to bind server.port flag: %v", err)
 	}
+	if err := viper.BindPFlag("server.site_domain", rootCmd.PersistentFlags().Lookup("site-domain")); err != nil {
+		logger.Error("Failed to bind server.site_domain flag: %v", err)
+	}
 	if err := viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		logger.Error("Failed to bind log.level flag: %v", err)
 	}
 	if err := viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log-file")); err != nil {
 		logger.Error("Failed to bind log.file flag: %v", err)
+	}
+	if err := viper.BindPFlag("server.allow_insecure_tls", rootCmd.PersistentFlags().Lookup("allow-insecure-tls")); err != nil {
+		logger.Error("Failed to bind server.allow_insecure_tls flag: %v", err)
+	}
+	if err := viper.BindPFlag("server.trusted_ips", rootCmd.PersistentFlags().Lookup("trusted-ips")); err != nil {
+		logger.Error("Failed to bind server.trusted_ips flag: %v", err)
 	}
 }
 

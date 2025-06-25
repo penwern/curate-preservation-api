@@ -36,6 +36,15 @@ If no filename is provided, it will create .preservation-api.yaml in the current
 		viper.SetDefault("db.type", "sqlite3")
 		viper.SetDefault("db.connection", "preservation_configs.db")
 		viper.SetDefault("server.port", 6910)
+		viper.SetDefault("server.site_domain", "localhost:8080")
+		viper.SetDefault("server.allow_insecure_tls", false)
+		viper.SetDefault("server.trusted_ips", []string{
+			"127.0.0.1",      // localhost IPv4
+			"::1",            // localhost IPv6
+			"10.0.0.0/8",     // RFC 1918 private network
+			"172.16.0.0/12",  // RFC 1918 private network
+			"192.168.0.0/16", // RFC 1918 private network
+		})
 		viper.SetDefault("log.level", "info")
 
 		// Write config file
@@ -74,9 +83,12 @@ var configValidateCmd = &cobra.Command{
 
 		// Validate the configuration
 		cfg := config.Config{
-			DBType:       viper.GetString("db.type"),
-			DBConnection: viper.GetString("db.connection"),
-			Port:         viper.GetInt("server.port"),
+			DBType:           viper.GetString("db.type"),
+			DBConnection:     viper.GetString("db.connection"),
+			Port:             viper.GetInt("server.port"),
+			SiteDomain:       viper.GetString("server.site_domain"),
+			AllowInsecureTLS: viper.GetBool("server.allow_insecure_tls"),
+			TrustedIPs:       viper.GetStringSlice("server.trusted_ips"),
 		}
 
 		// Basic validation
@@ -107,6 +119,9 @@ var configValidateCmd = &cobra.Command{
 		logger.Info("Database Type: %s", cfg.DBType)
 		logger.Info("Database Connection: %s", cfg.DBConnection)
 		logger.Info("Server Port: %d", cfg.Port)
+		logger.Info("Site Domain: %s", cfg.SiteDomain)
+		logger.Info("Allow Insecure TLS: %v", cfg.AllowInsecureTLS)
+		logger.Info("Trusted IPs: %v", cfg.TrustedIPs)
 		logger.Info("Log Level: %s", logLevel)
 	},
 }

@@ -1,139 +1,443 @@
-// Package server – auth middleware for Cells JWT
+// Package server – auth middleware for Pydio Cells OIDC
 package server
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 )
 
 // contextKey is a custom type for context keys to avoid collisions
 type contextKey string
 
-const jwtContextKey contextKey = "jwt"
+const userInfoContextKey contextKey = "userInfo"
 
-// JWKSCache keeps one remote JWK set per issuer.
-type JWKSCache struct {
-	m sync.Map // map[string]jwk.Set
+// UserRole represents a user role in Pydio Cells
+type UserRole struct {
+	Label string `json:"Label"`
+	UUID  string `json:"Uuid"`
 }
 
-// Get retrieves a JWK set for the given issuer, fetching it if not cached
-func (c *JWKSCache) Get(iss string) (jwk.Set, error) {
-	if v, ok := c.m.Load(iss); ok {
-		return v.(jwk.Set), nil
-	}
-	// Dex exposes keys at <issuer>/keys
-	ks, err := jwk.Fetch(context.Background(), iss+"/keys",
-		jwk.WithHTTPClient(&http.Client{Timeout: 5 * time.Second}))
-	if err != nil {
-		return nil, err
-	}
-	c.m.Store(iss, ks)
-	return ks, nil
+// UserInfo represents the combined user information from OIDC and Pydio
+type UserInfo struct {
+	// OIDC fields
+	Sub           string `json:"sub"`
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	PreferredName string `json:"preferred_username"`
+
+	// Pydio fields
+	Login     string     `json:"Login"`
+	UUID      string     `json:"Uuid"`
+	GroupPath string     `json:"GroupPath"`
+	Roles     []UserRole `json:"Roles"`
+
+	// Additional fields that might be present
+	Attributes map[string]interface{} `json:"Attributes,omitempty"`
 }
 
-var jwksCache JWKSCache
+// PydioUserQuery represents the query structure for Pydio user info
+type PydioUserQuery struct {
+	Queries []PydioQuery `json:"Queries"`
+}
 
-// Auth is a chi-style middleware that validates Cells JWTs.
-func Auth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hdr := r.Header.Get("Authorization")
-		if !strings.HasPrefix(hdr, "Bearer ") {
-			logger.Error("Auth failed: missing bearer token")
-			respondWithError(w, http.StatusUnauthorized, "missing bearer token")
-			return
-		}
+// PydioQuery represents the query structure for Pydio user info
+type PydioQuery struct {
+	UUID string `json:"Uuid"`
+}
 
-		raw := strings.TrimPrefix(hdr, "Bearer ")
-		logger.Debug("Auth: received token length: %d", len(raw))
-		logger.Debug("Auth: token starts with: %s", raw[:minInt(50, len(raw))])
+// PydioUserResponse represents the response from Pydio user info endpoint
+type PydioUserResponse struct {
+	Users []UserInfo `json:"Users"`
+}
 
-		// Check if token has the expected JWT structure (header.payload.signature)
-		parts := strings.Split(raw, ".")
-		logger.Debug("Auth: token has %d parts (expected 3 for JWT)", len(parts))
-		if len(parts) != 3 {
-			logger.Error("Auth failed: token doesn't have 3 parts (header.payload.signature), has %d parts", len(parts))
-			respondWithError(w, http.StatusUnauthorized, "invalid token format")
-			return
-		}
+// CacheEntry represents a cached user info with expiration
+type CacheEntry struct {
+	UserInfo  UserInfo
+	ExpiresAt time.Time
+}
 
-		// First parse the token without verification to get the issuer
-		tok, err := jwt.ParseString(raw, jwt.WithVerify(false), jwt.WithValidate(false))
-		if err != nil {
-			logger.Error("Auth failed: invalid token format: %v", err)
-			logger.Error("Auth failed: problematic token: %s", raw)
-			respondWithError(w, http.StatusUnauthorized, "invalid token format")
-			return
-		}
+// UserInfoCache provides thread-safe caching of user information
+type UserInfoCache struct {
+	cache map[string]CacheEntry
+	mutex sync.RWMutex
+	ttl   time.Duration
+}
 
-		// Get the issuer to fetch the correct key set
-		iss := tok.Issuer()
-		if iss == "" {
-			logger.Error("Auth failed: token missing issuer")
-			respondWithError(w, http.StatusUnauthorized, "token missing issuer")
-			return
-		}
+// NewUserInfoCache creates a new user info cache with the specified TTL
+func NewUserInfoCache(ttl time.Duration) *UserInfoCache {
+	cache := &UserInfoCache{
+		cache: make(map[string]CacheEntry),
+		ttl:   ttl,
+	}
 
-		logger.Debug("Auth: token issuer: %s", iss)
+	// Start cleanup goroutine
+	go cache.cleanup()
 
-		// Get the key set for this issuer
-		keySet, err := jwksCache.Get(iss)
-		if err != nil {
-			logger.Error("Auth failed: failed to fetch keys from %s: %v", iss, err)
-			respondWithError(w, http.StatusUnauthorized, "failed to fetch keys")
-			return
-		}
+	return cache
+}
 
-		logger.Debug("Auth: successfully fetched key set from issuer")
+// Get retrieves user info from cache if valid
+func (c *UserInfoCache) Get(token string) (UserInfo, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
-		// Now verify the token with the key set
-		verifiedTok, err := jwt.ParseString(raw, jwt.WithKeySet(keySet))
-		if err != nil {
-			logger.Error("Auth failed: token verification failed: %v", err)
-			respondWithError(w, http.StatusUnauthorized, "invalid or expired token")
-			return
-		}
+	entry, exists := c.cache[token]
+	if !exists || time.Now().After(entry.ExpiresAt) {
+		return UserInfo{}, false
+	}
 
-		logger.Debug("Auth: token successfully verified")
+	return entry.UserInfo, true
+}
 
-		// -- optional role check --
-		if roles, _ := verifiedTok.Get("roles"); roles != nil {
-			logger.Debug("Auth: checking roles: %v", roles)
-			if !contains(roles.([]any), "admin") {
-				logger.Error("Auth failed: insufficient role (need admin, got: %v)", roles)
-				respondWithError(w, http.StatusForbidden, "insufficient role")
-				return
+// Set stores user info in cache with expiration
+func (c *UserInfoCache) Set(token string, userInfo UserInfo) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.cache[token] = CacheEntry{
+		UserInfo:  userInfo,
+		ExpiresAt: time.Now().Add(c.ttl),
+	}
+}
+
+// cleanup removes expired entries from cache
+func (c *UserInfoCache) cleanup() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		c.mutex.Lock()
+		now := time.Now()
+		for token, entry := range c.cache {
+			if now.After(entry.ExpiresAt) {
+				delete(c.cache, token)
 			}
-			logger.Debug("Auth: admin role verified")
-		} else {
-			logger.Warn("Auth: no roles claim found in token, allowing access")
 		}
-
-		logger.Debug("Auth: authentication successful")
-		// token is fine – make it available downstream
-		ctx := context.WithValue(r.Context(), jwtContextKey, verifiedTok)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+		c.mutex.Unlock()
+	}
 }
 
-func contains(arr []any, val string) bool {
-	for _, v := range arr {
-		if v.(string) == val {
+// Global cache instance
+var userInfoCache = NewUserInfoCache(5 * time.Minute)
+
+// parseIPOrCIDR parses an IP address or CIDR range
+func parseIPOrCIDR(ipStr string) (*net.IPNet, error) {
+	// Check if it's a CIDR range
+	if strings.Contains(ipStr, "/") {
+		_, ipNet, err := net.ParseCIDR(ipStr)
+		return ipNet, err
+	}
+
+	// It's a single IP address, convert to /32 or /128
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return nil, fmt.Errorf("invalid IP address: %s", ipStr)
+	}
+
+	var mask net.IPMask
+	if ip.To4() != nil {
+		// IPv4
+		mask = net.CIDRMask(32, 32)
+	} else {
+		// IPv6
+		mask = net.CIDRMask(128, 128)
+	}
+
+	return &net.IPNet{IP: ip, Mask: mask}, nil
+}
+
+// isIPTrusted checks if the given IP address is in the trusted IPs list
+func isIPTrusted(clientIP string, trustedIPs []string) bool {
+	if len(trustedIPs) == 0 {
+		return false
+	}
+
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		logger.Debug("Auth: failed to parse client IP: %s", clientIP)
+		return false
+	}
+
+	for _, trustedIP := range trustedIPs {
+		ipNet, err := parseIPOrCIDR(trustedIP)
+		if err != nil {
+			logger.Warn("Auth: failed to parse trusted IP/CIDR '%s': %v", trustedIP, err)
+			continue
+		}
+
+		if ipNet.Contains(ip) {
+			logger.Debug("Auth: client IP %s matches trusted IP/CIDR %s", clientIP, trustedIP)
 			return true
 		}
 	}
+
+	logger.Debug("Auth: client IP %s not found in trusted IPs", clientIP)
 	return false
 }
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
+// getClientIP extracts the real client IP from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first (most common with proxies)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
 	}
-	return b
+
+	// Check X-Real-IP header (nginx)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+
+	// Fall back to RemoteAddr
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// getConfig returns configuration URLs for the specified site domain
+func getConfig(siteDomain string) (string, string, string) {
+	if siteDomain == "" {
+		siteDomain = "https://localhost:8080"
+	}
+
+	userinfoURL := fmt.Sprintf("%s/oidc/userinfo", siteDomain)
+	pydioUserInfoURL := fmt.Sprintf("%s/a/user", siteDomain)
+
+	return siteDomain, userinfoURL, pydioUserInfoURL
+}
+
+// validateTokenAndGetUserInfo validates token and retrieves user information using specified domain
+func validateTokenAndGetUserInfo(token string, siteDomain string, allowInsecureTLS bool) (*UserInfo, error) {
+	logger.Debug("Auth: validating token for domain: %s", siteDomain)
+
+	// Check cache first
+	if userInfo, found := userInfoCache.Get(token); found {
+		logger.Debug("Auth: using cached user info for user: %s", userInfo.Sub)
+		return &userInfo, nil
+	}
+
+	logger.Debug("Auth: no cached user info found, fetching from APIs")
+
+	_, userinfoURL, pydioUserInfoURL := getConfig(siteDomain)
+	logger.Debug("Auth: using OIDC userinfo URL: %s", userinfoURL)
+	logger.Debug("Auth: using Pydio user info URL: %s", pydioUserInfoURL)
+
+	// Step 1: Validate token with OIDC userinfo endpoint
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			// #nosec G402 -- InsecureSkipVerify is configurable via AllowInsecureTLS for development/testing environments
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: allowInsecureTLS},
+		},
+	}
+
+	logger.Debug("Auth: making OIDC userinfo request")
+	req, err := http.NewRequest("GET", userinfoURL, nil)
+	if err != nil {
+		logger.Error("Auth: failed to create userinfo request: %v", err)
+		return nil, fmt.Errorf("failed to create userinfo request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Error("Auth: userinfo request failed: %v", err)
+		return nil, fmt.Errorf("userinfo request failed: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error("Auth: failed to close userinfo response body: %v", err)
+		}
+	}()
+
+	logger.Debug("Auth: OIDC userinfo response status: %d", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("Auth: userinfo request failed with status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("userinfo request failed with status: %d", resp.StatusCode)
+	}
+
+	var oidcUserInfo UserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&oidcUserInfo); err != nil {
+		logger.Error("Auth: failed to decode userinfo response: %v", err)
+		return nil, fmt.Errorf("failed to decode userinfo response: %w", err)
+	}
+
+	logger.Debug("Auth: OIDC user info retrieved for user: %s (email: %s, name: %s)", oidcUserInfo.Sub, oidcUserInfo.Email, oidcUserInfo.Name)
+
+	// Step 2: Get detailed user info from Pydio Cells
+	if oidcUserInfo.Sub == "" {
+		logger.Error("Auth: user UUID not found in OIDC user info")
+		return nil, fmt.Errorf("user UUID not found in OIDC user info")
+	}
+
+	logger.Debug("Auth: making Pydio user info request for UUID: %s", oidcUserInfo.Sub)
+
+	pydioQuery := PydioUserQuery{
+		Queries: []PydioQuery{{UUID: oidcUserInfo.Sub}},
+	}
+
+	queryBytes, err := json.Marshal(pydioQuery)
+	if err != nil {
+		logger.Error("Auth: failed to marshal Pydio query: %v", err)
+		return nil, fmt.Errorf("failed to marshal Pydio query: %w", err)
+	}
+
+	logger.Debug("Auth: Pydio query payload: %s", string(queryBytes))
+
+	pydioReq, err := http.NewRequest("POST", pydioUserInfoURL, bytes.NewBuffer(queryBytes))
+	if err != nil {
+		logger.Error("Auth: failed to create Pydio request: %v", err)
+		return nil, fmt.Errorf("failed to create Pydio request: %w", err)
+	}
+	pydioReq.Header.Set("Authorization", "Bearer "+token)
+	pydioReq.Header.Set("Content-Type", "application/json")
+
+	logger.Debug("Auth: making Pydio user info request")
+	logger.Debug("Auth: Pydio request headers: %v", pydioReq.Header)
+
+	pydioResp, err := client.Do(pydioReq)
+	if err != nil {
+		logger.Error("Auth: pydio request failed: %v", err)
+		return nil, fmt.Errorf("pydio request failed: %w", err)
+	}
+	defer func() {
+		if err := pydioResp.Body.Close(); err != nil {
+			logger.Error("Auth: failed to close Pydio response body: %v", err)
+		}
+	}()
+
+	logger.Debug("Auth: Pydio user info response status: %d", pydioResp.StatusCode)
+
+	if pydioResp.StatusCode != http.StatusOK {
+		logger.Error("Auth: pydio request failed with status: %d", pydioResp.StatusCode)
+		return nil, fmt.Errorf("pydio request failed with status: %d", pydioResp.StatusCode)
+	}
+
+	var pydioUserInfo PydioUserResponse
+	if err := json.NewDecoder(pydioResp.Body).Decode(&pydioUserInfo); err != nil {
+		logger.Error("Auth: failed to decode Pydio response: %v", err)
+		return nil, fmt.Errorf("failed to decode Pydio response: %w", err)
+	}
+
+	logger.Debug("Auth: Pydio user info retrieved, found %d users", len(pydioUserInfo.Users))
+
+	// Combine user info
+	if len(pydioUserInfo.Users) == 0 {
+		logger.Error("Auth: user not found in Pydio Cells")
+		return nil, fmt.Errorf("user not found in Pydio Cells")
+	}
+
+	userInfo := pydioUserInfo.Users[0]
+	logger.Debug("Auth: Pydio user details - Login: %s, UUID: %s, GroupPath: %s", userInfo.Login, userInfo.UUID, userInfo.GroupPath)
+
+	// Merge OIDC info
+	userInfo.Sub = oidcUserInfo.Sub
+	userInfo.Email = oidcUserInfo.Email
+	userInfo.Name = oidcUserInfo.Name
+	userInfo.PreferredName = oidcUserInfo.PreferredName
+
+	logger.Debug("Auth: combined user info - storing in cache")
+	// Cache the result
+	userInfoCache.Set(token, userInfo)
+
+	logger.Debug("Auth: user validation complete for: %s", userInfo.Sub)
+	return &userInfo, nil
+}
+
+// TokenRequired creates a middleware that validates tokens using specified domain
+func TokenRequired(siteDomain string, trustedIPs []string, allowInsecureTLS bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			logger.Debug("Auth: starting authentication for %s %s", r.Method, r.URL.Path)
+			logger.Debug("Auth: site domain: '%s'", siteDomain)
+
+			// Check if the client IP is trusted
+			clientIP := getClientIP(r)
+			logger.Debug("Auth: client IP: %s", clientIP)
+
+			if isIPTrusted(clientIP, trustedIPs) {
+				logger.Info("Auth: allowing trusted IP %s to bypass authentication", clientIP)
+				// Create a minimal user info for trusted IPs
+				trustedUserInfo := &UserInfo{
+					Sub:           "trusted-ip:" + clientIP,
+					Email:         "trusted@internal",
+					Name:          "Trusted Internal User",
+					PreferredName: "trusted",
+					Login:         "trusted-ip",
+					UUID:          "trusted-ip:" + clientIP,
+					GroupPath:     "/trusted",
+					Roles:         []UserRole{{Label: "trusted", UUID: "trusted-role"}},
+				}
+
+				// Add trusted user info to request context
+				ctx := context.WithValue(r.Context(), userInfoContextKey, trustedUserInfo)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			// Extract token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				logger.Error("Auth failed: missing authorization header")
+				respondWithError(w, http.StatusUnauthorized, "Missing authorization header")
+				return
+			}
+
+			logger.Debug("Auth: authorization header present (length: %d)", len(authHeader))
+
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+				logger.Error("Auth failed: invalid Authorization header format: '%s'", authHeader)
+				respondWithError(w, http.StatusUnauthorized, "Invalid Authorization header format")
+				return
+			}
+
+			token := parts[1]
+			logger.Debug("Auth: extracted bearer token (length: %d)", len(token))
+
+			// Validate token and get user info
+			userInfo, err := validateTokenAndGetUserInfo(token, siteDomain, allowInsecureTLS)
+			if err != nil {
+				logger.Error("Auth failed: %v", err)
+				respondWithError(w, http.StatusUnauthorized, "Invalid or expired token")
+				return
+			}
+
+			logger.Debug("Auth: token validation successful for user: %s (login: %s)", userInfo.Sub, userInfo.Login)
+			logger.Debug("Auth: authentication successful for user: %s, proceeding to handler", userInfo.Sub)
+
+			// Add user info to request context
+			ctx := context.WithValue(r.Context(), userInfoContextKey, userInfo)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// Auth creates middleware that validates tokens using specified domain
+func Auth(siteDomain string, trustedIPs []string, allowInsecureTLS bool) func(http.Handler) http.Handler {
+	return TokenRequired(siteDomain, trustedIPs, allowInsecureTLS)
+}
+
+// GetUserInfo retrieves user info from request context
+func GetUserInfo(r *http.Request) *UserInfo {
+	if userInfo, ok := r.Context().Value(userInfoContextKey).(*UserInfo); ok {
+		return userInfo
+	}
+	return nil
 }

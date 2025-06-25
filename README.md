@@ -94,6 +94,14 @@ db:
   connection: preservation_configs.db
 server:
   port: 6910
+  site_domain: https://localhost:8080
+  allow_insecure_tls: false
+  trusted_ips:
+    - 127.0.0.1
+    - ::1
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
 log:
   level: info
 ```
@@ -107,7 +115,10 @@ You can also use JSON format:
     "connection": "user:password@tcp(localhost:3306)/dbname"
   },
   "server": {
-    "port": 8080
+    "port": 8080,
+    "site_domain": "https://cells.example.com",
+    "allow_insecure_tls": true,
+    "trusted_ips": ["127.0.0.1", "::1", "10.0.0.0/8"]
   },
   "log": {
     "level": "debug"
@@ -123,7 +134,11 @@ All commands support these global flags:
 - `--db-type`: Database type - `sqlite3` or `mysql` (default: `sqlite3`)
 - `--db-connection`: Database connection string (default: `preservation_configs.db`)
 - `--port`: Server port (default: `6910`)
+- `--site-domain`: Site domain for Pydio Cells OIDC and user endpoints (default: `https://localhost:8080`)
+- `--allow-insecure-tls`: Allow insecure TLS connections when making OIDC/Pydio requests (default: `false`)
+- `--trusted-ips`: Comma-separated list of trusted IP addresses/CIDR ranges that bypass authentication
 - `--log-level`: Log level - `debug`, `info`, `warn`, `error`, `fatal`, `panic` (default: `info`)
+- `--log-file`: Log file path (default: `/var/log/curate/curate-preservation-api.log`)
 
 ## API Usage Examples
 

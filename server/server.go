@@ -22,6 +22,7 @@ type Server struct {
 	router *chi.Mux
 	db     *database.Database
 	srv    *http.Server
+	config config.Config
 }
 
 // New creates a new server
@@ -68,6 +69,7 @@ func New(cfg config.Config) (*Server, error) {
 			Handler:           router,
 			ReadHeaderTimeout: 15 * time.Second,
 		},
+		config: cfg,
 	}
 
 	// Register routes
