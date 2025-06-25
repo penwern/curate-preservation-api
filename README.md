@@ -254,7 +254,6 @@ preservation-go-api/
 - github.com/go-chi/render - Response rendering helpers
 - github.com/go-sql-driver/mysql - MySQL driver
 - github.com/mattn/go-sqlite3 - SQLite3 driver
-- github.com/penwern/curate-preservation-core - A3M processing configuration types
 
 ### Running Tests
 

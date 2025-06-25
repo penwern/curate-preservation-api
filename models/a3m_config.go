@@ -2,7 +2,7 @@
 package models
 
 import (
-	transferservice "github.com/penwern/curate-preservation-core/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
+	transferservice "github.com/penwern/curate-preservation-api/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 

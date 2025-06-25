@@ -17,6 +17,10 @@ GOGET=$(GOCMD) get
 GOINSTALL=$(GOCMD) install
 GOMOD=$(GOCMD) mod
 
+# Buf parameters
+BUFCMD=buf
+PROTO_DIR=common/proto/a3m
+
 # Find all Go files excluding proto-generated files
 GO_FILES := $(shell find . -name "*.go" -not -name "*.pb.go" -not -path "./vendor/*")
 
@@ -65,6 +69,12 @@ test:
 test-coverage:
 	$(GOTEST) -race -coverprofile=coverage.out -covermode=atomic ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+
+# Protocol Buffer targets
+.PHONY: buf-generate
+buf-generate:
+	@echo "Running buf generate..."
+	cd $(PROTO_DIR) && $(BUFCMD) generate
 
 # Formatting targets
 .PHONY: format
@@ -150,9 +160,8 @@ install-tools:
 	$(GOINSTALL) golang.org/x/tools/cmd/goimports@latest
 	$(GOINSTALL) github.com/daixiang0/gci@latest
 	$(GOINSTALL) mvdan.cc/gofumpt@latest
-	# Uncomment if using Protocol Buffers
-	# @echo "Installing buf..."
-	# @curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$$(uname -s)-$$(uname -m)" -o "$${HOME}/.local/bin/buf" && chmod +x "$${HOME}/.local/bin/buf"
+	@echo "Installing buf..."
+	@curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$$(uname -s)-$$(uname -m)" -o "$${HOME}/.local/bin/buf" && chmod +x "$${HOME}/.local/bin/buf"
 	@echo "Development tools installed!"
 
 # CI/CD targets

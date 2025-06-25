@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	transferservice "github.com/penwern/curate-preservation-api/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
 	"github.com/penwern/curate-preservation-api/models"
 	"github.com/penwern/curate-preservation-api/pkg/logger"
-	transferservice "github.com/penwern/curate-preservation-core/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
 )
 
 const (
