@@ -98,7 +98,8 @@ func initConfig() {
 		viper.SetConfigName(".preservation-api")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvPrefix("CA4M_API") // set environment prefix
+	viper.AutomaticEnv()           // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
