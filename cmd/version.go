@@ -11,11 +11,11 @@ import (
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version information",
-	Long:  `Print the version information for the preservation API server.`,
+	Short: "Print version information",
+	Long:  `Display version, build time, and commit information for the Curate Preservation API.`,
 	Run: func(_ *cobra.Command, _ []string) {
 		//nolint:forbidigo // Version command needs to output directly to stdout
-		fmt.Printf("Preservation API Server\n")
+		fmt.Printf("Curate Preservation API\n")
 		//nolint:forbidigo // Version command needs to output directly to stdout
 		fmt.Printf("Version:    %s\n", version.Version())
 		//nolint:forbidigo // Version command needs to output directly to stdout
