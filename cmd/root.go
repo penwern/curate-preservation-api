@@ -53,7 +53,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error, fatal, panic)")
 	rootCmd.PersistentFlags().StringVar(&logFilePath, "log-file", "", "log file path (default is /var/log/curate/curate-preservation-api.log)")
 	rootCmd.PersistentFlags().BoolVar(&allowInsecureTLS, "allow-insecure-tls", false, "allow insecure TLS connections when making OIDC/Pydio requests")
-	rootCmd.PersistentFlags().StringSliceVar(&trustedIPs, "trusted-ips", []string{}, "comma-separated list of trusted IP addresses/CIDR ranges that bypass authentication")
+	rootCmd.PersistentFlags().StringSliceVar(&trustedIPs, "trusted-ips", []string{"127.0.0.1", "::1"}, "comma-separated list of trusted IP addresses/CIDR ranges that bypass authentication")
 
 	// Bind flags to viper
 	if err := viper.BindPFlag("db.type", rootCmd.PersistentFlags().Lookup("db-type")); err != nil {

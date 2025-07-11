@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/penwern/curate-preservation-api/pkg/config"
@@ -29,6 +30,23 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 }
 
+// getStringSlice handles viper's limitation with comma-separated environment variables
+func getStringSlice(key string) []string {
+	slice := viper.GetStringSlice(key)
+
+	// If we got a slice with one element that contains commas, split it
+	if len(slice) == 1 && strings.Contains(slice[0], ",") {
+		parts := strings.Split(slice[0], ",")
+		result := make([]string, len(parts))
+		for i, part := range parts {
+			result[i] = strings.TrimSpace(part)
+		}
+		return result
+	}
+
+	return slice
+}
+
 func runServer() {
 	// Load configuration from viper
 	cfg := config.Config{
@@ -37,7 +55,7 @@ func runServer() {
 		Port:             viper.GetInt("server.port"),
 		SiteDomain:       viper.GetString("server.site_domain"),
 		AllowInsecureTLS: viper.GetBool("server.allow_insecure_tls"),
-		TrustedIPs:       viper.GetStringSlice("server.trusted_ips"),
+		TrustedIPs:       getStringSlice("server.trusted_ips"),
 	}
 
 	// Create and start the server
