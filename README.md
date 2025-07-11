@@ -409,11 +409,13 @@ The A3M configuration includes all processing options:
 # List existing tags
 git tag --list
 
+VERTAG=v0.1.3
+
 # Create new release tag
-git tag -a v0.1.5 -m "Release version 0.1.5"
+git tag -a $VERTAG -m $VERTAG
 
 # Push tag to trigger CI/CD
-git push origin v0.1.5
+git push origin $VERTAG
 
 # Verify release
 git describe --tags
