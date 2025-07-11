@@ -48,7 +48,15 @@ func runServer() {
 
 	// Start the server in a goroutine
 	go func() {
+		logger.Info("===========================================")
 		logger.Info("Starting API server on port %d", cfg.Port)
+		logger.Info("Cells Site Domain: %s", cfg.SiteDomain)
+		logger.Info("Allow Insecure TLS: %v", cfg.AllowInsecureTLS)
+		if len(cfg.TrustedIPs) > 0 {
+			logger.Info("Trusted IPs configured: %v", cfg.TrustedIPs)
+		} else {
+			logger.Info("No trusted IPs configured - all requests require authentication")
+		}
 		if err := srv.Start(); err != nil {
 			logger.Fatal("Server failed: %v", err)
 		}

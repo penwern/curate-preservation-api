@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/penwern/curate-preservation-api/pkg/logger"
 	"github.com/spf13/cobra"
@@ -98,8 +99,9 @@ func initConfig() {
 		viper.SetConfigName(".preservation-api")
 	}
 
-	viper.SetEnvPrefix("CA4M_API") // set environment prefix
-	viper.AutomaticEnv()           // read in environment variables that match
+	viper.SetEnvPrefix("CA4M_API")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
