@@ -111,7 +111,18 @@ func TestInitialize_DirectoryCreation(t *testing.T) {
 }
 
 func TestGetLogger_AutoInitialize(t *testing.T) {
-	// Reset global logger
+	// WARNING: This test modifies global state and should not be run in parallel
+
+	// Store original logger to restore after test
+	originalLogger := log
+	defer func() {
+		// Restore original logger state to prevent affecting other tests
+		log = originalLogger
+	}()
+
+	// CRITICAL: Setting global logger to nil to test auto-initialization behavior
+	// This modification affects the global state and could impact other tests
+	// if they run concurrently or depend on the logger being initialized
 	log = nil
 
 	// This should auto-initialize with defaults (though it may panic due to permissions)
