@@ -3,7 +3,7 @@ module github.com/penwern/curate-preservation-api
 go 1.24.1
 
 require (
-	github.com/go-chi/cors v1.2.1
+	github.com/go-chi/cors v1.2.2
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/spf13/cobra v1.9.1
