@@ -4,6 +4,12 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
+)
+
+const (
+	develVersion = "devel"
+	unknownValue = "unknown"
 )
 
 func TestVersion(t *testing.T) {
@@ -16,7 +22,7 @@ func TestVersion(t *testing.T) {
 
 	// For testing environment, version is likely to be "devel"
 	// In a real build it would be a proper version string
-	if version != "devel" && !strings.HasPrefix(version, "v") {
+	if version != develVersion && !strings.HasPrefix(version, "v") {
 		t.Logf("Version: %s (this may be expected in test environment)", version)
 	}
 }
@@ -30,7 +36,7 @@ func TestCommit(t *testing.T) {
 	}
 
 	// Should return either a commit hash or "unknown"
-	if commit != "unknown" {
+	if commit != unknownValue {
 		// If it's not "unknown", it should look like a git hash
 		// Git hashes are hexadecimal and typically 7-40 characters
 		if len(commit) < 7 || len(commit) > 40 {
@@ -55,10 +61,10 @@ func TestBuildTime(t *testing.T) {
 	}
 
 	// Should return either an RFC3339 timestamp or "unknown"
-	if buildTime != "unknown" {
-		// Basic check for RFC3339 format (should contain 'T' and end with 'Z' or timezone)
-		if !strings.Contains(buildTime, "T") {
-			t.Errorf("BuildTime '%s' does not appear to be in RFC3339 format", buildTime)
+	if buildTime != unknownValue {
+		// Properly validate RFC3339 format by parsing it
+		if _, err := time.Parse(time.RFC3339, buildTime); err != nil {
+			t.Errorf("BuildTime '%s' is not in valid RFC3339 format: %v", buildTime, err)
 		}
 	}
 }
@@ -71,7 +77,7 @@ func TestBuildSetting_ValidKey(t *testing.T) {
 	}
 
 	// Should return either a value or "unknown"
-	if revision != "unknown" {
+	if revision != unknownValue {
 		t.Logf("VCS revision: %s", revision)
 	}
 }
@@ -79,18 +85,18 @@ func TestBuildSetting_ValidKey(t *testing.T) {
 func TestBuildSetting_InvalidKey(t *testing.T) {
 	// Test buildSetting with a key that doesn't exist
 	result := buildSetting("nonexistent.key")
-	
-	if result != "unknown" {
-		t.Errorf("Expected 'unknown' for nonexistent key, got '%s'", result)
+
+	if result != unknownValue {
+		t.Errorf("Expected '%s' for nonexistent key, got '%s'", unknownValue, result)
 	}
 }
 
 func TestBuildSetting_EmptyKey(t *testing.T) {
 	// Test buildSetting with empty key
 	result := buildSetting("")
-	
-	if result != "unknown" {
-		t.Errorf("Expected 'unknown' for empty key, got '%s'", result)
+
+	if result != unknownValue {
+		t.Errorf("Expected '%s' for empty key, got '%s'", unknownValue, result)
 	}
 }
 
@@ -98,7 +104,7 @@ func TestVersionConsistency(t *testing.T) {
 	// Call Version() multiple times and ensure it returns the same value
 	version1 := Version()
 	version2 := Version()
-	
+
 	if version1 != version2 {
 		t.Errorf("Version() returned different values: '%s' vs '%s'", version1, version2)
 	}
@@ -108,7 +114,7 @@ func TestCommitConsistency(t *testing.T) {
 	// Call Commit() multiple times and ensure it returns the same value
 	commit1 := Commit()
 	commit2 := Commit()
-	
+
 	if commit1 != commit2 {
 		t.Errorf("Commit() returned different values: '%s' vs '%s'", commit1, commit2)
 	}
@@ -118,7 +124,7 @@ func TestBuildTimeConsistency(t *testing.T) {
 	// Call BuildTime() multiple times and ensure it returns the same value
 	buildTime1 := BuildTime()
 	buildTime2 := BuildTime()
-	
+
 	if buildTime1 != buildTime2 {
 		t.Errorf("BuildTime() returned different values: '%s' vs '%s'", buildTime1, buildTime2)
 	}
@@ -162,14 +168,15 @@ func TestVersionNotDevelInBuild(t *testing.T) {
 	// In development, version should be "devel"
 	// In a proper build, it should be a version tag
 	version := Version()
-	
-	if version == "devel" {
+
+	switch {
+	case version == develVersion:
 		t.Log("Running in development mode (version is 'devel')")
-	} else if strings.HasPrefix(version, "v") {
+	case strings.HasPrefix(version, "v"):
 		t.Logf("Running with tagged version: %s", version)
-	} else if version == "(devel)" {
+	case version == "(devel)":
 		t.Log("Running with Go's default devel version")
-	} else {
+	default:
 		t.Logf("Running with version: %s", version)
 	}
 }

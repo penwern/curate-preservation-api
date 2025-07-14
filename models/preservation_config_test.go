@@ -92,22 +92,22 @@ func TestPreservationConfig_JSONMarshalUnmarshal(t *testing.T) {
 
 	// Verify A3M config fields
 	if unmarshaledConfig.A3MConfig.AssignUuidsToDirectories != config.A3MConfig.AssignUuidsToDirectories {
-		t.Errorf("Expected AssignUuidsToDirectories %v, got %v", 
+		t.Errorf("Expected AssignUuidsToDirectories %v, got %v",
 			config.A3MConfig.AssignUuidsToDirectories, unmarshaledConfig.A3MConfig.AssignUuidsToDirectories)
 	}
 
 	if unmarshaledConfig.A3MConfig.ExamineContents != config.A3MConfig.ExamineContents {
-		t.Errorf("Expected ExamineContents %v, got %v", 
+		t.Errorf("Expected ExamineContents %v, got %v",
 			config.A3MConfig.ExamineContents, unmarshaledConfig.A3MConfig.ExamineContents)
 	}
 
 	if unmarshaledConfig.A3MConfig.AipCompressionLevel != config.A3MConfig.AipCompressionLevel {
-		t.Errorf("Expected AipCompressionLevel %d, got %d", 
+		t.Errorf("Expected AipCompressionLevel %d, got %d",
 			config.A3MConfig.AipCompressionLevel, unmarshaledConfig.A3MConfig.AipCompressionLevel)
 	}
 
 	if unmarshaledConfig.A3MConfig.ThumbnailMode != config.A3MConfig.ThumbnailMode {
-		t.Errorf("Expected ThumbnailMode %v, got %v", 
+		t.Errorf("Expected ThumbnailMode %v, got %v",
 			config.A3MConfig.ThumbnailMode, unmarshaledConfig.A3MConfig.ThumbnailMode)
 	}
 }
