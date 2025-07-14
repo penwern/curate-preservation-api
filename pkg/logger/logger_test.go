@@ -69,6 +69,7 @@ func TestInitialize_EmptyLogPath(t *testing.T) {
 }
 
 func TestInitialize_RelativePath(t *testing.T) {
+	// This test modifies the working directory and cannot be run in parallel
 	tmpDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
