@@ -1,0 +1,226 @@
+name: Update Protobuf Definitions
+
+on:
+  schedule:
+    # Run every Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-protobuf:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install Buf CLI
+        run: |
+          # Install buf CLI
+          BUF_VERSION="1.28.1"
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+          buf --version
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Check for protobuf updates
+        id: check-updates
+        run: |
+          cd common/proto/a3m
+          
+          # Create backup of current state
+          cp buf.lock buf.lock.backup 2>/dev/null || true
+          
+          # Update dependencies and regenerate code
+          echo "Updating buf dependencies..."
+          buf dep update
+          
+          # Check if buf.lock changed
+          if ! diff -q buf.lock.backup buf.lock >/dev/null 2>&1; then
+            echo "Dependencies updated, regenerating Go code..."
+            buf generate
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "update_type=dependency" >> $GITHUB_OUTPUT
+          else
+            # Even if dependencies didn't change, check if we can regenerate
+            # This catches cases where the remote definitions changed but versions didn't
+            echo "Dependencies unchanged, checking for definition updates..."
+            buf generate
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "update_type=none" >> $GITHUB_OUTPUT
+          fi
+          
+          # Clean up backup
+          rm -f buf.lock.backup
+
+      - name: Check for changes in generated files
+        id: check-generated
+        run: |
+          # Check if any files in the repository have changed
+          if git diff --quiet; then
+            echo "No changes detected in generated files"
+            echo "has_generated_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in generated files"
+            echo "has_generated_changes=true" >> $GITHUB_OUTPUT
+            
+            # Show what changed for logging
+            echo "Changed files:"
+            git diff --name-only
+            
+            # Get a summary of changes
+            echo "change_summary<<EOF" >> $GITHUB_OUTPUT
+            echo "## Summary of Changes" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "### Modified Files:" >> $GITHUB_OUTPUT
+            git diff --name-only | sed 's/^/- /' >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "### Details:" >> $GITHUB_OUTPUT
+            if [[ "${{ steps.check-updates.outputs.has_changes }}" == "true" ]]; then
+              echo "- Updated protobuf dependencies in buf.lock" >> $GITHUB_OUTPUT
+            fi
+            echo "- Regenerated Go code from latest protobuf definitions" >> $GITHUB_OUTPUT
+            echo "- Updated from a3m protobuf schema: buf.build/penwern/a3m" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "_This PR was automatically created by the weekly protobuf update workflow._" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.check-generated.outputs.has_generated_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            chore: update protobuf definitions
+            
+            - Updated A3M protobuf dependencies
+            - Regenerated Go code from latest definitions
+            - Source: buf.build/penwern/a3m
+          title: "chore: update protobuf definitions"
+          body: |
+            ${{ steps.check-generated.outputs.change_summary }}
+            
+            ## Testing
+            
+            - [ ] Generated Go code compiles successfully
+            - [ ] All existing tests pass
+            - [ ] No breaking changes in public API
+            
+            ## Review Notes
+            
+            This PR contains automatically generated code updates from the latest A3M protobuf definitions.
+            Please review the changes to ensure:
+            
+            1. **Backward Compatibility**: Check that existing functionality is not broken
+            2. **New Features**: Review any new fields or methods that may have been added
+            3. **Deprecations**: Look for any deprecated fields that may need handling
+            4. **Tests**: Ensure all tests pass and consider if new tests are needed
+            
+            ## Auto-merge Policy
+            
+            This PR can be auto-merged if:
+            - All CI checks pass
+            - No breaking changes are detected
+            - Code review is approved
+            
+          branch: chore/update-protobuf-definitions
+          branch-suffix: timestamp
+          delete-branch: true
+          labels: |
+            dependencies
+            automated-pr
+            protobuf
+          reviewers: |
+            # Add default reviewers here if needed
+          draft: false
+
+      - name: Run tests after protobuf update
+        if: steps.check-generated.outputs.has_generated_changes == 'true'
+        run: |
+          echo "Running tests to verify protobuf updates..."
+          go mod tidy
+          go test ./... -short
+          
+          # Run additional validation
+          echo "Validating generated code..."
+          go vet ./...
+          
+          # Check if the code builds
+          echo "Building application..."
+          go build ./...
+
+      - name: Comment on no changes
+        if: steps.check-generated.outputs.has_generated_changes == 'false'
+        run: |
+          echo "✅ No protobuf updates found. Definitions are up to date."
+          echo "Checked source: buf.build/penwern/a3m"
+          echo "Last run: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: protobuf-update-logs
+          path: |
+            common/proto/a3m/buf.lock*
+            common/proto/a3m/*.log
+          retention-days: 7
+
+  # Optional: Run a quick validation of the current protobuf setup
+  validate-current-setup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install Buf CLI
+        run: |
+          BUF_VERSION="1.28.1"
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+
+      - name: Validate current protobuf setup
+        run: |
+          cd common/proto/a3m
+          echo "🔍 Validating current protobuf configuration..."
+          
+          # Validate buf configuration
+          buf config ls-modules
+          
+          # Check dependency status
+          echo "📦 Current dependencies:"
+          cat buf.lock
+          
+          # Validate generated code can be built
+          echo "🔨 Validating generated Go code..."
+          cd ../../..
+          go mod tidy
+          go build ./common/proto/...
+          
+          echo "✅ Current protobuf setup is valid"

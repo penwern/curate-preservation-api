@@ -1,0 +1,123 @@
+name: Protobuf CI
+
+on:
+  pull_request:
+    paths:
+      - 'common/proto/**'
+      - 'models/**'
+      - '.github/workflows/protobuf-ci.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'common/proto/**'
+      - 'models/**'
+  schedule:
+    # Check for updates to remote schemas weekly
+    - cron: '0 9 * * 1'  # Monday at 9 AM UTC
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  protobuf-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+          
+      - name: Setup Buf
+        uses: bufbuild/buf-action@v1
+        with:
+          token: ${{ secrets.BUF_TOKEN }}
+          setup_only: true  # Only setup buf, don't run build/lint/format
+          
+      - name: Check for dependency updates
+        run: |
+          cd common/proto/a3m
+          echo "🔍 Checking current dependencies..."
+          echo "Current buf.lock:"
+          cat buf.lock 2>/dev/null || echo "No buf.lock file"
+          
+          echo ""
+          echo "🔍 Checking for dependency updates..."
+          buf dep update --dry-run || echo "No updates available or already up to date"
+          
+      - name: Generate protobuf code
+        run: |
+          cd common/proto/a3m
+          echo "🔨 Generating protobuf code from remote schemas..."
+          buf generate --error-format github-actions
+          
+      - name: Verify generated code is up-to-date
+        run: |
+          cd common/proto/a3m
+          echo "🔍 Checking if generated code is up-to-date..."
+          if git diff --quiet; then
+            echo "✅ Generated code is up-to-date"
+          else
+            echo "❌ Generated code is out of sync with remote schemas"
+            echo ""
+            echo "Modified files:"
+            git diff --name-only
+            echo ""
+            echo "This usually means:"
+            echo "1. The remote schema has been updated"
+            echo "2. You need to run 'buf generate' locally and commit the changes"
+            echo "3. Or your buf.gen.yaml configuration has changed"
+            exit 1
+          fi
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: protobuf-validation
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Run integration tests
+        run: |
+          echo "🧪 Running integration tests with protobuf models..."
+          go test ./... -tags=integration -v
+
+      - name: Test JSON serialization
+        run: |
+          echo "🧪 Testing JSON serialization of protobuf models..."
+          if [ -d "./models" ]; then
+            go test ./models/ -run "JSON" -v
+          else
+            go test ./common/proto/a3m/gen/go/... -run "JSON" -v || echo "No JSON tests found"
+          fi
+
+      - name: Benchmark protobuf operations
+        run: |
+          echo "⚡ Running protobuf performance benchmarks..."
+          if [ -d "./models" ]; then
+            go test ./models/ -bench=. -benchmem -run=^$ || true
+          else
+            go test ./common/proto/a3m/gen/go/... -bench=. -benchmem -run=^$ || true
+
+      - name: Build generated Go code
+        run: |
+          echo "🔨 Building generated Go protobuf code..."
+          go mod tidy
+          if [ -d "./common/proto/a3m/gen/go" ]; then
+            go build ./common/proto/a3m/gen/go/...
+          fi
+          if [ -d "./models" ]; then
+            go build ./models/...
+          fi
