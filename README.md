@@ -329,6 +329,29 @@ go test -v ./server/...
 go test -race ./...
 ```
 
+### Protobuf Management
+
+This project uses protobuf definitions from the A3M project for configuration management. Protobuf definitions are automatically updated weekly via GitHub Actions.
+
+```bash
+# Update protobuf definitions manually
+./scripts/update-protobuf.sh
+
+# Regenerate protobuf code
+cd common/proto/a3m
+buf generate
+
+# Install buf CLI if needed
+curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.28.1/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf
+chmod +x /usr/local/bin/buf
+```
+
+**Automatic Updates:**
+- Weekly GitHub Actions workflow checks for protobuf updates
+- Creates pull requests when updates are found
+- Includes comprehensive testing and validation
+- See [`docs/protobuf-updates.md`](docs/protobuf-updates.md) for detailed information
+
 ### Code Quality
 
 The project uses several tools to maintain code quality:
