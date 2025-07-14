@@ -110,3 +110,14 @@ jobs:
             go test ./models/ -bench=. -benchmem -run=^$ || true
           else
             go test ./common/proto/a3m/gen/go/... -bench=. -benchmem -run=^$ || true
+
+      - name: Build generated Go code
+        run: |
+          echo "🔨 Building generated Go protobuf code..."
+          go mod tidy
+          if [ -d "./common/proto/a3m/gen/go" ]; then
+            go build ./common/proto/a3m/gen/go/...
+          fi
+          if [ -d "./models" ]; then
+            go build ./models/...
+          fi
