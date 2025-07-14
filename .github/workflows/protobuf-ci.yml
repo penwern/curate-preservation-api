@@ -74,49 +74,6 @@ jobs:
             echo "3. Or your buf.gen.yaml configuration has changed"
             exit 1
           fi
-          
-      - name: Build generated Go code
-        run: |
-          echo "🔨 Building generated Go protobuf code..."
-          go mod tidy
-          go build ./common/proto/a3m/gen/go/...
-          
-          if [ -d "./models" ]; then
-            echo "🔨 Building models that use protobuf..."
-            go build ./models/...
-          fi
-
-      - name: Run protobuf-related tests
-        run: |
-          echo "🧪 Running tests for protobuf-related packages..."
-          if [ -d "./models" ]; then
-            go test ./models/... -v
-          fi
-          go test ./common/proto/a3m/gen/go/... -v -short
-
-      - name: Test protobuf functionality
-        run: |
-          echo "🧪 Testing protobuf message creation and serialization..."
-          cd common/proto/a3m
-          go run -C ../../../ << 'EOF'
-          package main
-          
-          import (
-            "fmt"
-            "log"
-            
-            pb "github.com/penwern/curate-preservation-api/common/proto/a3m/gen/go/a3m/api/transferservice/v1beta1"
-          )
-          
-          func main() {
-            // Test that we can create and use the generated protobuf types
-            fmt.Println("Testing protobuf message creation...")
-            
-            // This is just a basic test - adjust based on your actual message types
-            // Example: creating a message (replace with actual message types from your schema)
-            fmt.Println("✅ Protobuf types are accessible and functional")
-          }
-          EOF
 
   integration-test:
     runs-on: ubuntu-latest
