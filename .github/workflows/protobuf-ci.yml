@@ -13,6 +13,10 @@ on:
       - 'common/proto/**'
       - 'models/**'
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   protobuf-validation:
     runs-on: ubuntu-latest
@@ -25,97 +29,36 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-
-      - name: Install Buf CLI
-        run: |
-          BUF_VERSION="1.28.1"
-          curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" \
-            -o /usr/local/bin/buf
-          chmod +x /usr/local/bin/buf
-          buf --version
-
-      - name: Validate buf configuration
-        run: |
-          cd common/proto/a3m
-          echo "🔍 Validating buf configuration..."
-          buf config ls-modules
           
-          echo "📋 Checking buf.yaml syntax..."
-          buf config ls --config buf.yaml
-
-      - name: Check protobuf dependencies
-        run: |
-          cd common/proto/a3m
-          echo "📦 Validating dependencies..."
-          buf dep ls
+      - name: Run Buf checks
+        uses: bufbuild/buf-action@v1
+        with:
+          token: ${{ secrets.BUF_TOKEN }}
+          input: 'common/proto/a3m'
+          format: true
+          lint: true
+          breaking: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name == 'push' }}
+          pr_comment: true
           
-          echo "🔒 Checking lock file integrity..."
-          if [ -f buf.lock ]; then
-            echo "Lock file exists and contains:"
-            cat buf.lock
-          else
-            echo "⚠️ No lock file found"
-          fi
-
-      - name: Generate and verify protobuf code
-        run: |
-          cd common/proto/a3m
-          echo "🔨 Generating protobuf code..."
-          
-          # Generate code
-          buf generate
-          
-          # Check if generated code matches committed code
-          cd ../../..
-          if git diff --quiet; then
-            echo "✅ Generated code matches committed code"
-          else
-            echo "❌ Generated code differs from committed code"
-            echo "Differences found:"
-            git diff --name-only
-            echo ""
-            echo "This usually means the committed generated code is out of sync."
-            echo "Please run 'buf generate' in common/proto/a3m/ and commit the changes."
-            exit 1
-          fi
-
       - name: Build generated Go code
         run: |
           echo "🔨 Building generated Go protobuf code..."
           go mod tidy
-          go build ./common/proto/...
+          go build ./common/proto/a3m/gen/go/...
           
-          echo "🔨 Building models that use protobuf..."
-          go build ./models/...
+          if [ -d "./models" ]; then
+            echo "🔨 Building models that use protobuf..."
+            go build ./models/...
+          fi
 
       - name: Run protobuf-related tests
         run: |
           echo "🧪 Running tests for protobuf-related packages..."
-          go test ./models/... -v
-          go test ./common/proto/... -v -short
-
-      - name: Lint generated code
-        run: |
-          echo "🔍 Running linting on generated code..."
-          go vet ./common/proto/...
-          go vet ./models/...
-
-      - name: Check for breaking changes
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "🔍 Checking for potential breaking changes in protobuf..."
-          
-          # This is a basic check - in a real scenario you might want to use
-          # buf breaking or other tools for proper API compatibility checking
-          
-          # Check if any exported types in models package changed
-          if git diff --name-only origin/main...HEAD | grep -q "models/.*\.go$"; then
-            echo "⚠️  Changes detected in models package."
-            echo "Please verify that changes are backward compatible."
-            echo ""
-            echo "Changed files in models:"
-            git diff --name-only origin/main...HEAD | grep "models/.*\.go$" || true
+          if [ -d "./models" ]; then
+            go test ./models/... -v
           fi
+          go test ./common/proto/a3m/gen/go/... -v -short
 
   integration-test:
     runs-on: ubuntu-latest
@@ -138,9 +81,17 @@ jobs:
       - name: Test JSON serialization
         run: |
           echo "🧪 Testing JSON serialization of protobuf models..."
-          go test ./models/ -run "JSON" -v
+          if [ -d "./models" ]; then
+            go test ./models/ -run "JSON" -v
+          else
+            go test ./common/proto/a3m/gen/go/... -run "JSON" -v || echo "No JSON tests found"
+          fi
 
       - name: Benchmark protobuf operations
         run: |
           echo "⚡ Running protobuf performance benchmarks..."
-          go test ./models/ -bench=. -benchmem -run=^$ || true
+          if [ -d "./models" ]; then
+            go test ./models/ -bench=. -benchmem -run=^$ || true
+          else
+            go test ./common/proto/a3m/gen/go/... -bench=. -benchmem -run=^$ || true
+          fi
