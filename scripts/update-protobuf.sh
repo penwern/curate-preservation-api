@@ -2,7 +2,7 @@
 # Script to update protobuf definitions locally
 # This script mirrors the GitHub Actions workflow for local development
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -53,36 +53,44 @@ cd "$PROTO_DIR"
 
 print_info "Current working directory: $(pwd)"
 
-# Backup current state
-print_info "Creating backup of current state..."
-cp buf.lock buf.lock.backup 2>/dev/null || print_warning "No existing buf.lock found"
-
-# Show current dependencies
-print_info "Current dependencies:"
-if [ -f buf.lock ]; then
-    cat buf.lock
+# Check if this is a remote dependency setup
+if [ -f buf.yaml ] && grep -q "buf.build" buf.yaml; then
+    print_info "Detected remote dependency setup (buf.build/penwern/a3m)"
+    print_info "Skipping dependency update - using remote module"
+    REMOTE_DEPS=true
 else
-    print_warning "No lock file found"
-fi
+    REMOTE_DEPS=false
+    # Backup current state for local dependencies
+    print_info "Creating backup of current state..."
+    cp buf.lock buf.lock.backup 2>/dev/null || print_warning "No existing buf.lock found"
 
-# Update dependencies
-print_info "Updating buf dependencies..."
-if buf dep update; then
-    print_success "Dependencies updated successfully"
-else
-    print_error "Failed to update dependencies"
-    exit 1
-fi
+    # Show current dependencies
+    print_info "Current dependencies:"
+    if [ -f buf.lock ]; then
+        cat buf.lock
+    else
+        print_warning "No lock file found"
+    fi
 
-# Check if dependencies changed
-DEPS_CHANGED=false
-if ! diff -q buf.lock.backup buf.lock >/dev/null 2>&1; then
-    DEPS_CHANGED=true
-    print_success "Dependencies were updated!"
-    print_info "Dependency changes:"
-    diff buf.lock.backup buf.lock || true
-else
-    print_info "Dependencies are already up to date"
+    # Update dependencies
+    print_info "Updating buf dependencies..."
+    if buf dep update; then
+        print_success "Dependencies updated successfully"
+    else
+        print_error "Failed to update dependencies"
+        exit 1
+    fi
+
+    # Check if dependencies changed
+    DEPS_CHANGED=false
+    if [ -f buf.lock.backup ] && ! diff -q buf.lock.backup buf.lock >/dev/null 2>&1; then
+        DEPS_CHANGED=true
+        print_success "Dependencies were updated!"
+        print_info "Dependency changes:"
+        diff buf.lock.backup buf.lock || true
+    else
+        print_info "Dependencies are already up to date"
+    fi
 fi
 
 # Generate Go code
@@ -108,10 +116,14 @@ else
     
     echo ""
     print_info "Summary of changes:"
-    if [ "$DEPS_CHANGED" = true ]; then
-        echo "  ✓ Updated protobuf dependencies in buf.lock"
+    if [ "$REMOTE_DEPS" = true ]; then
+        echo "  ✓ Regenerated Go code from remote protobuf module"
+    else
+        if [ "${DEPS_CHANGED:-false}" = true ]; then
+            echo "  ✓ Updated protobuf dependencies in buf.lock"
+        fi
+        echo "  ✓ Regenerated Go code from latest protobuf definitions"
     fi
-    echo "  ✓ Regenerated Go code from latest protobuf definitions"
     echo "  ✓ Source: buf.build/penwern/a3m"
     
     echo ""
@@ -139,8 +151,10 @@ else
     exit 1
 fi
 
-# Clean up backup
-rm -f "$PROTO_DIR/buf.lock.backup"
+# Clean up backup (only if we created one)
+if [ "$REMOTE_DEPS" = false ]; then
+    rm -f "$PROTO_DIR/buf.lock.backup"
+fi
 
 print_success "Protobuf update completed successfully!"
 echo ""
