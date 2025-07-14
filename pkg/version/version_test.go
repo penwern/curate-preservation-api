@@ -45,7 +45,7 @@ func TestCommit(t *testing.T) {
 
 		// Check if it contains only valid hex characters
 		for _, char := range commit {
-			if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+			if (char < '0' || char > '9') && (char < 'a' || char > 'f') && (char < 'A' || char > 'F') {
 				t.Errorf("Commit hash '%s' contains non-hex character: %c", commit, char)
 			}
 		}
